@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -293,7 +293,7 @@ pre.json { margin: 0; padding: 14px 16px; font-family: var(--mono); font-size: 1
       <a href="#/how" data-nav="how">How it works</a>
     </nav>
     <div class="side-foot">
-      <button class="theme-btn" id="themeBtn" type="button">Theme: auto</button>
+      <button class="theme-btn" id="themeBtn" type="button">Theme: light</button>
       <span>Demo on one sample API. Not a product you can install yet.</span>
     </div>
   </aside>
@@ -346,8 +346,9 @@ pre.json { margin: 0; padding: 14px 16px; font-family: var(--mono); font-size: 1
   }
 
   // ---------- theme ----------
-  var themes = ["auto", "light", "dark"], themeIx = 0;
-  try { themeIx = Math.max(0, themes.indexOf(localStorage.getItem("cs-theme") || "auto")); } catch (e) {}
+  // Light by default (looks best on a projector). The button switches to dark, or to the computer's own setting.
+  var themes = ["light", "dark", "auto"], themeIx = 0;
+  try { themeIx = Math.max(0, themes.indexOf(localStorage.getItem("cs-theme") || "light")); } catch (e) {}
   function applyTheme() {
     var t = themes[themeIx];
     if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
