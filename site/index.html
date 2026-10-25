@@ -179,7 +179,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tag { font-size: 11px; font-weight: 750; padding: 1px 7px; border-radius: 999px; }
 .tag.bad { background: var(--bad); color: #fff; }
 .tag.good { background: var(--good-soft); color: var(--good); border: 1px solid var(--good-line); }
-.fmt { margin-top: 12px; font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.fmt { margin-top: 12px; font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: baseline; }
+.fmt .tag { flex: none; }
 
 /* replay */
 .counters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -254,7 +255,7 @@ pre.json { margin: 0; padding: 14px 16px; font-family: var(--mono); font-size: 1
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
-  .app { grid-template-columns: minmax(0, 1fr); }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--line); }
   .workspace, .side-foot span { display: none; }
   .side-foot { margin: 0 0 0 auto; padding: 0; }
@@ -607,7 +608,7 @@ pre.json { margin: 0; padding: 14px 16px; font-family: var(--mono); font-size: 1
         '<span class="why">' + (seen ? esc(c.reason) + " · " + short(c.calls_per_day) + "/day" : "…") + '</span></li>';
     }).join("");
     var fc = v.callers.format_check || {};
-    var fmt = done && fc.tool ? '<div class="fmt"><span class="tag good">format check passed</span> oasdiff found no breaking changes. The format looks fine. The <b>meaning</b> changed.</div>' : "";
+    var fmt = done && fc.tool ? '<div class="fmt"><span class="tag good">format check passed</span><span>oasdiff found no breaking changes. The format looks fine. The <b>meaning</b> changed.</span></div>' : "";
     var lead = v.callers.affected
       ? "These apps still send <code>amount</code> in paise, but the new code reads it as rupees."
       : "Every app sends <code>amount</code> in the unit the API now expects.";
