@@ -1,0 +1,15 @@
+# What Countersign protects in this repo, and who signs off on risky changes.
+api_name: refund-api
+spec: service/openapi.yaml
+handler: service/refund_api.py:create_refund
+gateway_log: data/gateway_log.jsonl
+replay_data: data/refunds_last_week.csv
+rules: countersign/rules.yaml
+
+approver:
+  role: payments lead
+  # GitHub username of whoever plays the payments lead. Must NOT be the person who opens the PR
+  # (GitHub doesn't let you approve your own pull request).
+  github_user: PAYMENTS_LEAD_GITHUB_USERNAME
+
+label: needs-payments-lead

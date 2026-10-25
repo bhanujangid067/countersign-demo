@@ -1,0 +1,106 @@
+# Countersign: runs on every pull request, inside this repo's own GitHub Actions.
+# Code and payment data never leave the company's CI.
+name: Countersign
+
+on:
+  pull_request:
+  # Run again when someone reviews, so the payments lead's approval can turn the check green.
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: write   # comment, request a reviewer
+  issues: write          # labels
+
+concurrency:
+  group: countersign-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Normal tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run the team's normal unit tests
+        run: python -m pytest -v
+
+  countersign:
+    name: Countersign
+    needs: tests
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      # Countersign's own code and rules run from the base branch, so a PR can't switch them off.
+      - name: Get the old code (base branch)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - name: Get the new code (this PR)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -r base/requirements.txt
+      - name: Install oasdiff (free, open-source API diff tool)
+        run: |
+          curl -fsSL -o /tmp/oasdiff.tar.gz \
+            https://github.com/oasdiff/oasdiff/releases/download/v1.34.1/oasdiff_1.34.1_linux_amd64.tar.gz
+          tar -xzf /tmp/oasdiff.tar.gz -C /tmp oasdiff
+          sudo mv /tmp/oasdiff /usr/local/bin/oasdiff
+
+      - name: "Check 1: who will break?"
+        working-directory: base
+        run: python -m countersign.check_callers --base . --head ../head --out ../out/callers.json
+
+      - name: "Check 2: is the money right?"
+        id: money
+        continue-on-error: true   # keep going so we can post the comment; the last step fails the check
+        working-directory: base
+        run: python -m countersign.check_money --base . --head ../head --out ../out/money.json
+
+      - name: "Check 3: who signs off?"
+        working-directory: base
+        run: python -m countersign.github approval --head-sha "$HEAD_SHA" --out ../out/approval.json
+
+      - name: Decide and write the audit record
+        id: report
+        continue-on-error: true
+        working-directory: base
+        run: >
+          python -m countersign.report
+          --callers ../out/callers.json --money ../out/money.json --approval ../out/approval.json
+          --out-dir ../out --pr "$PR_NUMBER" --commit "$HEAD_SHA" --repo "$GITHUB_REPOSITORY"
+
+      - name: Save the audit record
+        id: audit
+        uses: actions/upload-artifact@v7
+        with:
+          name: countersign-audit-pr${{ github.event.pull_request.number }}-run${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/
+
+      - name: Post the PR comment
+        working-directory: base
+        run: >
+          python -m countersign.github publish --comment ../out/comment.md --verdict ../out/verdict.txt
+          --audit-link "[download](${{ steps.audit.outputs.artifact-url }}) · artifact id ${{ steps.audit.outputs.artifact-id }}"
+
+      - name: Countersign result
+        run: |
+          echo "Countersign: $(cat out/verdict.txt)"
+          if [ "${{ steps.report.outcome }}" != "success" ]; then
+            echo "::error::Stopped by Countersign. Fix the change or get approval from the payments lead."
+            exit 1
+          fi

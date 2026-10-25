@@ -1,0 +1,11 @@
+# Money rules Countersign checks on every replayed refund.
+#
+# Each rule is "<left> <compare> <right>". Names you can use:
+#   paid           what the customer paid for the order (paise)
+#   refund_asked   the refund that was asked for last week (paise)
+#   refund_before  what the old code (base branch) sent to the bank (paise)
+#   refund_out     what the new code (this PR) sends to the bank (paise)
+rules:
+  - id: refund-not-more-than-paid
+    check: refund_out <= paid
+    message: refund can't be more than the amount paid

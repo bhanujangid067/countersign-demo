@@ -1,0 +1,107 @@
+# SAMPLE API SPEC for the Countersign demo. Made-up company, not a real API.
+openapi: 3.0.3
+info:
+  title: Refund API (sample)
+  version: 1.0.0
+  description: Refund API of a made-up payment company, used only for the Countersign demo.
+paths:
+  /v1/refunds:
+    post:
+      operationId: createRefund
+      summary: Send a refund for an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '201':
+          description: Refund sent to the bank
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+  /v1/refunds/{refund_id}:
+    get:
+      operationId: getRefund
+      summary: Read a refund
+      parameters:
+        - $ref: '#/components/parameters/RefundId'
+      responses:
+        '200':
+          description: The refund
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+  /v1/refunds/{refund_id}/status:
+    post:
+      operationId: updateRefundStatus
+      summary: UPI switch reports the refund's status
+      parameters:
+        - $ref: '#/components/parameters/RefundId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [upi_status]
+              properties:
+                upi_status:
+                  type: string
+                  enum: [success, failed, pending]
+      responses:
+        '204':
+          description: Status saved
+  /v1/refunds/{refund_id}/confirm:
+    post:
+      operationId: confirmRefund
+      summary: Partner bank confirms the refund was paid out
+      parameters:
+        - $ref: '#/components/parameters/RefundId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bank_ref]
+              properties:
+                bank_ref:
+                  type: string
+      responses:
+        '204':
+          description: Confirmation saved
+components:
+  parameters:
+    RefundId:
+      name: refund_id
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    RefundRequest:
+      type: object
+      required: [order_id, amount]
+      properties:
+        order_id:
+          type: string
+        amount:
+          type: integer
+          description: Amount to refund, in paise (₹1 = 100 paise).
+          x-unit: paise
+    Refund:
+      type: object
+      properties:
+        refund_id:
+          type: string
+        order_id:
+          type: string
+        refund_paise:
+          type: integer
+          description: Amount refunded, in paise.
+        status:
+          type: string

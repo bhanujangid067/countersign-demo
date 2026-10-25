@@ -1,0 +1,9 @@
+{"_note": "SAMPLE DATA. Made up for the Countersign demo. One day of API gateway traffic to the refund API, summed per caller. Calls per day are illustrative."}
+{"caller": "mobile-app", "name": "Mobile app", "method": "POST", "path": "/v1/refunds", "fields_sent": ["order_id", "amount"], "units": {"amount": "paise"}, "calls_per_day": 1200000}
+{"caller": "merchant-dashboard", "name": "Merchant dashboard", "method": "POST", "path": "/v1/refunds", "fields_sent": ["order_id", "amount"], "units": {"amount": "paise"}, "calls_per_day": 85000}
+{"caller": "partner-shopping-app", "name": "Partner shopping app", "method": "POST", "path": "/v1/refunds", "fields_sent": ["order_id", "amount"], "units": {"amount": "paise"}, "calls_per_day": 240000}
+{"caller": "accounting-service", "name": "Accounting service", "method": "GET", "path": "/v1/refunds/{refund_id}", "fields_read": ["status"], "calls_per_day": 30000}
+{"caller": "upi-switch", "name": "UPI switch", "method": "POST", "path": "/v1/refunds/{refund_id}/status", "fields_sent": ["upi_status"], "calls_per_day": 900000}
+{"caller": "partner-bank", "name": "Partner bank", "method": "POST", "path": "/v1/refunds/{refund_id}/confirm", "fields_sent": ["bank_ref"], "calls_per_day": 400000}
+{"caller": "support-tool", "name": "Support tool", "method": "GET", "path": "/v1/refunds/{refund_id}", "fields_read": ["status"], "calls_per_day": 12000}
+{"caller": "fraud-checks", "name": "Fraud checks", "method": "GET", "path": "/v1/refunds/{refund_id}", "fields_read": ["order_id"], "calls_per_day": 1100000}
