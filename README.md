@@ -37,6 +37,8 @@ scripts/demo_local.sh --pause    # waits for Enter between steps (for presenting
 
 You'll see: tests pass → 2 callers named → ₹900 → ₹90,000 caught → STOPPED → the fix → ALL CLEAR.
 
+It also writes a one-page **dashboard** (like the report's mock-up) from the same results: open `out/local/dashboard.html` for the stopped change, or `out/local/dashboard-fixed.html` after the fix. It works offline. The "Request approval" button is for show only. On GitHub, Countersign already asks the payments lead to review.
+
 ---
 
 ## How it works, in simple words
