@@ -96,12 +96,14 @@ You need: a **public** repo (branch rules are free on public repos), and a **sec
 3. Add the payments lead as a collaborator: **Settings → Collaborators**.
 4. Wait for the first checks to finish on the PR (about a minute). Then turn on the merge block: **Settings → Rules → Rulesets → New branch ruleset**
    - Target: the default branch (`main`); Enforcement: **Active**
-   - ✓ Require a pull request before merging
+   - ✓ Require a pull request before merging → ✓ **Dismiss stale pull request approvals when new commits are pushed** (so a new commit always needs a new approval)
    - ✓ Require status checks to pass → add **Normal tests** and **Countersign**
 5. **On stage:**
    - Fix route: `scripts/github_demo.sh fix` → about a minute later everything is green.
-   - Approval route: the payments lead opens the PR → **Files changed → Review changes → Approve** → Countersign re-runs and turns green with "Approved by payments lead".
-6. After a rehearsal: `scripts/github_demo.sh reset` puts the PR back to the bad change.
+   - Approval route: the payments lead opens the PR → **Files changed → Review changes → Approve** → the "re-check after review" workflow (`countersign-review.yml`) re-runs Countersign, which turns green with "Approved by payments lead". Takes about a minute.
+6. After a rehearsal: `scripts/github_demo.sh reset` puts the PR back to the bad change. Any approval is cancelled, because the PR got a new push.
+
+The ruleset blocks direct pushes to `main`. To change `main`, switch the ruleset to **Disabled**, push, and switch it back to **Active**.
 
 ---
 
