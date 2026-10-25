@@ -10,6 +10,6 @@ approver:
   role: payments lead
   # GitHub username of whoever plays the payments lead. Must NOT be the person who opens the PR
   # (GitHub doesn't let you approve your own pull request).
-  github_user: PAYMENTS_LEAD_GITHUB_USERNAME
+  github_user: Bhanubpj067
 
 label: needs-payments-lead
