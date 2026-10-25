@@ -490,6 +490,14 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   // ---------- helpers ----------
   var params = new URLSearchParams((location.hash.split("?")[1]) || "");
   var SPEED = Math.max(0.2, Math.min(3, parseFloat(params.get("speed")) || 1));
+  // Recording mode (#/...?steps): each check waits to be released, so a voiceover can finish first.
+  var STEP_MODE = params.has("steps"), gates = {};
+  function gate(name) {
+    if (!STEP_MODE) return Promise.resolve();
+    return new Promise(function (resolve) { gates[name] = resolve; window.__waitingFor = name; });
+  }
+  window.__release = function (name) { if (gates[name]) { var r = gates[name]; delete gates[name]; window.__waitingFor = null; r(); } };
+  window.__setSpeed = function (x) { SPEED = x; };
   function focusOn(id) {
     if (current() !== "change") return;
     var el = document.getElementById(id);
@@ -979,14 +987,17 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     S.steps.tests = "running"; paint(); await sleep(900);
     S.steps.tests = "pass"; paint(); await sleep(300);
 
+    await gate("callers");
     S.steps.callers = "running"; S.scanned = -1; paint(); focusOn("chkCallers");
     for (var i = 0; i < v.callers.callers.length; i++) { S.scanned = i; paintCallers(); await sleep(320); }
     S.steps.callers = v.callers.affected ? "warn" : "pass"; paint(); await sleep(500);
 
+    await gate("money");
     S.steps.money = "running"; S.replayed = 0; S.wrongSeen = 0; paint(); focusOn("chkMoney");
     await replayAnimation(v.money, 3200);
     S.steps.money = v.money.wrong.length ? "fail" : "pass"; paint(); await sleep(500);
 
+    await gate("signoff");
     S.steps.signoff = "running"; paint(); focusOn("chkSignoff"); await sleep(800);
     S.justStamped = true;
     if (risky(v)) {

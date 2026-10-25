@@ -56,6 +56,21 @@ Every number on the site comes from a real run of the checks: `scripts/demo_loca
 
 ---
 
+## The demo video
+
+`video/` makes a 2-minute narrated video of the whole story, plus real GitHub screenshots as proof. One-time setup (Mac, needs internet): `brew install espeak-ng ffmpeg`, then in `video/`: `npm install`, `python3.11 -m venv .tts && .tts/bin/pip install kokoro-onnx soundfile`, download the Kokoro model files into `video/models/`, and run `npm install` in `video/remotion/`.
+
+To remake it (for example after changing the script in `video/script.json`):
+
+1. `video/.tts/bin/python video/make_voice.py`: the voiceover (free Kokoro AI voice, offline)
+2. `node video/record.mjs`: records the website in step with the voice
+3. `node video/capture_github.mjs <failed run id> <green run id>`: GitHub screenshots
+4. In `video/remotion/`: `npx remotion render CountersignDemo ../out/countersign-demo.mp4`
+
+`npx remotion studio` in `video/remotion/` opens an editor to preview and tweak it.
+
+---
+
 ## How it works, in simple words
 
 The repo plays two roles at once:
