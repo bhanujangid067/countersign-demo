@@ -82,9 +82,12 @@ def publish(repo: str, pr: str, comment_file: Path, verdict_file: Path, audit_li
     if verdict == "stopped":
         try_call("POST", f"/repos/{repo}/labels", {"name": label, "color": "d93f0b",
                                                   "description": "Countersign: needs the payments lead"})
-        try_call("POST", f"/repos/{repo}/issues/{pr}/labels", {"labels": [label]})
-        try_call("POST", f"/repos/{repo}/pulls/{pr}/requested_reviewers", {"reviewers": [approver]})
-        print(f"Added label {label} and asked @{approver} to review")
+        if try_call("POST", f"/repos/{repo}/issues/{pr}/labels", {"labels": [label]}) is not None:
+            print(f"Added label {label}")
+        if try_call("POST", f"/repos/{repo}/pulls/{pr}/requested_reviewers", {"reviewers": [approver]}) is not None:
+            print(f"Asked @{approver} to review")
+        else:
+            print(f"Could not ask @{approver} to review. Have they accepted the collaborator invite?")
     else:
         try_call("DELETE", f"/repos/{repo}/issues/{pr}/labels/{label}")
 
