@@ -41,6 +41,21 @@ It also writes a one-page **dashboard** (like the report's mock-up) from the sam
 
 ---
 
+## The website (easiest way to show it)
+
+Open `site/index.html` in any browser. It works offline. It's Countersign as a product: an overview, change #482 with all three checks animating, an audit log, and a plain-English "How it works" page.
+
+On the change page, use the buttons or keys: **R** run Countersign · **F** developer pushes a fix · **A** payments lead approves · **0** reset.
+
+For recording, add these to the address after `#/change`:
+- `?play=fix` acts out the whole story by itself: stopped, then fixed and all clear.
+- `?play=approve` does the same, but ends with the payments lead approving.
+- `&speed=0.5` makes it slower; `&speed=2` makes it faster.
+
+Every number on the site comes from a real run of the checks: `scripts/demo_local.sh` writes `site/data.js`.
+
+---
+
 ## How it works, in simple words
 
 The repo plays two roles at once:

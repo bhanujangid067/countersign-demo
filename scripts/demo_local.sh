@@ -75,9 +75,12 @@ check_change fix "Step 5 · The fix: API takes an explicit unit, paise by defaul
 
 "$PY" -m countersign.dashboard --results out/local/bad-change --out out/local/dashboard.html --change-number 482 >/dev/null
 "$PY" -m countersign.dashboard --results out/local/fix --out out/local/dashboard-fixed.html --change-number 482 >/dev/null
+"$PY" -m countersign.site --base "$WORK/main" --bad "$WORK/bad-change" --fix "$WORK/fix" \
+  --results out/local --out site/data.js >/dev/null
 
 title "Summary"
 echo "  bad-change   tests ✓   Check 1 ⚠ 2 callers break   Check 2 ✗ ₹900 → ₹90,000   → STOPPED"
 echo "  fix          tests ✓   Check 1 ✓                   Check 2 ✓                  → ALL CLEAR"
 echo "  Results and audit records: out/local/"
 echo "  Dashboard: open out/local/dashboard.html (and dashboard-fixed.html)"
+echo "  Website:   open site/index.html"
