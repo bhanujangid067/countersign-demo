@@ -334,6 +334,52 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .event.merged b.m { color: var(--pen); }
 pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); color: var(--ink-2); background: var(--sheet-2); max-height: 300px; overflow: auto; border-radius: 0 0 var(--r) var(--r); white-space: pre-wrap; word-break: break-word; }
 
+/* audit log: a record you could print and file */
+.audit-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 22px; align-items: start; }
+.reclist { list-style: none; margin: 0; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.reclist button { width: 100%; text-align: left; border: 0; background: none; padding: 10px 12px; border-radius: 6px; cursor: pointer; display: grid; gap: 3px; }
+.reclist button:hover { background: var(--sheet-2); }
+.reclist button.on { background: var(--pen-soft); }
+.reclist .r1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+.reclist .r2 { font: 12px var(--font-mono); color: var(--muted); }
+.doc { padding: 36px 44px 28px; max-width: 860px; }
+.doc-h { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 16px; border-bottom: 2px solid var(--ink); }
+.lh { display: flex; gap: 12px; align-items: center; }
+.lh b { display: block; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.lh span { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.doc-id { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.doc-id code { color: var(--ink-2); }
+.doc-title { font-size: 23px; margin: 4px 0 16px; font-weight: 600; letter-spacing: -.01em; }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 7px 22px; margin: 0 0 18px; font-size: 14px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.facts .av { width: 22px; height: 22px; font-size: 9.5px; }
+.doc-s { padding: 18px 0; border-top: 1px solid var(--rule); }
+.doc-s h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+.doc-s h3 .n { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 1.5px solid var(--ink-2); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.doc-s h3 .res { margin-left: auto; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.res.ok { color: var(--clear); } .res.no { color: var(--stop); } .res.warn { color: var(--caution); } .res.signed { color: var(--pen); }
+.doc-s p { margin: 4px 0; max-width: 70ch; color: var(--ink-2); font-size: 14.5px; }
+.doc-s ul { margin: 8px 0 4px; padding-left: 20px; font-size: 14.5px; color: var(--ink-2); display: grid; gap: 4px; }
+.doc-s ul b { color: var(--ink); font-weight: 600; }
+.doc .tablewrap { margin-top: 10px; border: 1px solid var(--rule); border-radius: var(--r); }
+.doc th, .doc td { padding: 8px 14px; font-size: 13.5px; }
+.sig { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: end; }
+.sig-block { display: flex; flex-direction: column; min-width: 0; }
+.sig-block .signature { font-size: 50px; padding: 0 4px; }
+.sig-empty { height: 52px; }
+.sig-block .sigline { margin-top: -4px; line-height: 1.5; }
+.sig-block .sigline b { color: var(--ink); font-weight: 600; }
+.sig-statement { font-size: 13.5px; color: var(--ink-2); margin: 0; }
+.doc-foot { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; }
+details.raw summary { cursor: pointer; color: var(--pen); font-weight: 500; font-size: 13px; }
+details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid var(--rule); }
+.mini { display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+.mini .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mini code { font-size: 11.5px; color: var(--muted); word-break: break-all; }
+.mini .signature { font-size: 34px; padding: 0; }
+.mini .sigline { margin-top: -4px; font-size: 12px; }
+
 /* how it works */
 .lede { font-size: 19px; line-height: 1.5; color: var(--ink); max-width: 60ch; margin: 0; }
 .three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
@@ -387,6 +433,11 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
   .event { padding-left: 40px; }
   .event::before { left: 9px; }
   .signature { font-size: 42px; }
+  .audit-layout { grid-template-columns: minmax(0, 1fr); }
+  .doc { padding: 22px 18px 18px; }
+  .doc-title { font-size: 19px; }
+  .sig { grid-template-columns: minmax(0, 1fr); }
+  .doc-h .stamp { font-size: 12px; padding: 7px 10px 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before { animation: none !important; transition: none !important; }
@@ -508,6 +559,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
       steps: { tests: "pending", callers: "pending", money: "pending", signoff: "pending" },
       scanned: -1, replayed: 0, wrongSeen: 0, busy: false,
       opened: opened, fixedAt: null, askedAt: null, approvedBy: null, approvedAt: null, justSigned: false, justStamped: false,
+      auditSel: 0,
       audits: [], activity: [{ t: opened, who: DEV, text: "opened change #" + D.change.number + ": " + D.change.title }]
     };
   }
@@ -654,7 +706,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
         '<section class="sheet mergecard" id="mergeBox"><div class="head">' + ICON.branch + 'Merge into <span class="ref">main</span></div>' +
           '<ul class="reqs" id="mergeReqs"></ul>' +
           '<button class="btn merge-btn" id="bMerge" type="button"></button><small id="mergeNote"></small></section>' +
-        '<section class="sheet"><div class="sheet-h"><h3>Audit record</h3><span class="aside" id="auditCount"></span></div><pre class="json" id="auditJson"></pre></section>' +
+        '<section class="sheet"><div class="sheet-h"><h3>Audit record</h3><span class="aside" id="auditCount"></span></div><div class="sheet-b mini" id="auditMini"></div></section>' +
       '</aside></div>';
     document.getElementById("bRun").onclick = function () { runChecks(); };
     document.getElementById("bFix").onclick = function () { pushFix(); };
@@ -740,8 +792,16 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     document.getElementById("bReset").disabled = busy;
     paintMerge(v);
 
-    var last = S.audits[0];
-    document.getElementById("auditJson").textContent = last ? JSON.stringify(last, null, 2) : "No record yet. Countersign saves one every time it decides.";
+    var last = S.audits[0], mini = document.getElementById("auditMini");
+    if (!last) mini.innerHTML = '<span class="muted">No record yet. Countersign writes one every time it decides.</span>';
+    else {
+      var vl = verdictLabel(last);
+      mini.innerHTML = '<div class="top"><span class="pill ' + vl[1] + '">' + vl[0] + '</span><span class="muted">' + clock(new Date(last.created_at)) + '</span></div>' +
+        '<code>' + esc(last.audit_id) + '</code>' +
+        (last.sign_off.approved_by ? '<div><div class="signature">' + LEAD.name + '</div><div class="sigline">' + LEAD.name + ', ' + LEAD.role.toLowerCase() + '</div></div>' : "") +
+        '<a href="#/audit" data-open-audit>Open the full record ' + ICON.arrow + '</a>';
+      mini.querySelector("[data-open-audit]").onclick = function () { S.auditSel = 0; };
+    }
     document.getElementById("auditCount").textContent = S.audits.length ? S.audits.length + " saved" : "";
     updateNav();
   }
@@ -799,7 +859,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     ["bRun", "bFix", "bApprove", "bReset"].forEach(function (id) { document.getElementById(id).disabled = true; });
     await sleep(1300);
     S.phase = "merged"; S.mergedAt = now(); S.justMerged = true; S.justStamped = false;
-    S.audits.unshift(makeAudit("merged"));
+    S.auditSel = 0; S.audits.unshift(makeAudit("merged"));
     log(DEV, "merged #" + D.change.number + " into main (commit " + V().commit + ")");
     S.busy = false; paint(); focusOn("verdict");
     toast("Merged into main. It's live.");
@@ -931,12 +991,12 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     S.justStamped = true;
     if (risky(v)) {
       S.steps.signoff = "fail"; S.phase = "stopped"; S.askedAt = now();
-      S.audits.unshift(makeAudit("stopped"));
+      S.auditSel = 0; S.audits.unshift(makeAudit("stopped"));
       log(null, "stopped #" + D.change.number + ": " + n(v.money.wrong.length) + " refunds wrong, " + v.callers.affected + " apps break");
       log(null, "asked Ananya (payments lead) to review");
     } else {
       S.steps.signoff = "pass"; S.phase = "clear";
-      S.audits.unshift(makeAudit("all clear"));
+      S.auditSel = 0; S.audits.unshift(makeAudit("all clear"));
       log(null, "found nothing wrong with commit " + v.commit + ". All clear.");
     }
     S.busy = false; paint();
@@ -989,7 +1049,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     S.steps.signoff = "running"; paint(); focusOn("chkSignoff"); await sleep(1000);
     S.approvedBy = LEAD.name + " (" + ROLE + ")"; S.approvedAt = now().toISOString().replace(/\.\d+/, "");
     S.steps.signoff = "pass"; S.phase = "approved"; S.justSigned = true; S.justStamped = true;
-    S.audits.unshift(makeAudit("approved"));
+    S.auditSel = 0; S.audits.unshift(makeAudit("approved"));
     log(LEAD, "approved and countersigned #" + D.change.number + " (commit " + V().commit + ")");
     S.busy = false; paint();
     await sleep(2600); focusOn("verdict");
@@ -998,34 +1058,101 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
   function resetDemo() {
     if (S.busy) return;
     var audits = S.audits;
-    S = freshState(); S.audits = audits; tabState = { bad: 0, fix: 0 };
+    S = freshState(); S.audits = audits; S.auditSel = 0; tabState = { bad: 0, fix: 0 };
     if (current() === "change") renderChange(); else route();
     toast("Starting again. Change #" + D.change.number + " is waiting to be checked.");
   }
 
   // ---------- Audit log ----------
+  var VERDICT = { "stopped": ["Stopped", "stop"], "all clear": ["All clear", "clear"], "approved": ["Countersigned", "signed"], "merged": ["Merged", "merged"] };
+  function verdictLabel(a) { return VERDICT[a.verdict] || [a.verdict, ""]; }
+  function versionOf(a) { return a.commit === D.fix.commit ? D.fix : D.bad; }
+
   function renderAudit() {
-    var rows = S.audits.map(function (a, i) {
-      var cls = a.verdict === "stopped" ? "stop" : a.verdict === "approved" ? "signed" : a.verdict === "merged" ? "merged" : "clear";
-      return '<tr><td><code>' + esc(a.audit_id) + '</code></td><td>#' + a.pull_request + ' · <span class="ref">' + esc(a.commit) + '</span></td>' +
-        '<td><span class="pill ' + cls + '">' + esc(a.verdict) + '</span></td><td>' + esc(a.sign_off.approved_by || (a.sign_off.needed ? "waiting" : "not needed")) + '</td>' +
-        '<td class="num">' + clock(new Date(a.created_at)) + '</td><td><button class="btn" type="button" data-show="' + i + '" style="padding:4px 10px;font-size:13px">View</button></td></tr>';
+    var list = S.audits.map(function (a, i) {
+      var vl = verdictLabel(a);
+      return '<li><button type="button" data-rec="' + i + '" class="' + (i === S.auditSel ? "on" : "") + '">' +
+        '<span class="r1"><span>' + (a.verdict === "merged" ? "Merged into main" : a.verdict === "approved" ? "Signed by " + LEAD.first : a.verdict === "stopped" ? "Change stopped" : "Checks passed") + '</span><span class="pill ' + vl[1] + '">' + vl[0] + '</span></span>' +
+        '<span class="r2">' + clock(new Date(a.created_at)) + ' · commit ' + esc(a.commit) + '</span></button></li>';
     }).join("");
     view.innerHTML =
       '<div class="page-head"><div><h1>Audit log</h1><p>Every decision Countersign makes is written down: what it checked, what it found, who signed, and when.</p></div></div>' +
-      '<section class="sheet">' + (S.audits.length
-        ? '<div class="tablewrap"><table><thead><tr><th>Record</th><th>Change</th><th>Verdict</th><th>Signed by</th><th class="num">Time</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-        : '<div class="sheet-b muted">No records yet. Open <a href="#/change">change #' + D.change.number + '</a> and run Countersign.</div>') +
-      '</section><section class="sheet" style="margin-top:18px" id="auditView" hidden><div class="sheet-h"><h3>Record</h3></div><pre class="json" id="auditViewJson"></pre></section>' +
+      (S.audits.length
+        ? '<div class="audit-layout"><section class="sheet"><div class="sheet-h"><h2>Records</h2><span class="aside">' + S.audits.length + '</span></div><ul class="reclist">' + list + '</ul></section>' +
+          '<div id="auditDoc" style="min-width:0"></div></div>'
+        : '<section class="sheet sheet-b muted">No records yet. Open <a href="#/change">change #' + D.change.number + '</a> and run Countersign. Each decision it makes appears here as a signed record.</section>') +
       '<p class="muted" style="font-size:13.5px;margin-top:14px">On GitHub, each record is also saved as a file on the workflow run and linked from the pull request.</p>';
-    view.querySelectorAll("[data-show]").forEach(function (b) {
-      b.onclick = function () {
-        var box = document.getElementById("auditView"); box.hidden = false;
-        document.getElementById("auditViewJson").textContent = JSON.stringify(S.audits[+b.getAttribute("data-show")], null, 2);
-        box.scrollIntoView({ behavior: "smooth", block: "start" });
-      };
+    view.querySelectorAll("[data-rec]").forEach(function (b) {
+      b.onclick = function () { S.auditSel = +b.getAttribute("data-rec"); renderAudit(); if (window.innerWidth < 880) document.getElementById("auditDoc").scrollIntoView({ behavior: "smooth" }); };
     });
+    if (S.audits.length) document.getElementById("auditDoc").innerHTML = auditDoc(S.audits[Math.min(S.auditSel, S.audits.length - 1)]);
     updateNav();
+  }
+
+  function auditDoc(a) {
+    var v = versionOf(a), m = v.money, c = v.callers, vl = verdictLabel(a), at = new Date(a.created_at);
+    var broken = c.callers.filter(function (x) { return x.affected; });
+    var so = a.sign_off, signed = !!so.approved_by;
+    var stampCls = vl[1] === "stop" ? "" : vl[1] === "clear" ? " clear" : " signed";
+    var fc = c.format_check || {};
+
+    var s1 = docSection(1, "Normal tests", '<span class="res ok">Passed</span>',
+      '<p>All ' + v.tests + ' of the team\'s own unit tests passed on commit <span class="ref">' + esc(a.commit) + '</span>.</p>');
+
+    var s2body = '<p>Countersign compared the old and new API, and read the gateway logs for the ' + c.total + ' apps that call <span class="ref">' + esc(a.api) + '</span>.</p>';
+    if (broken.length) s2body += '<p>' + broken.length + ' of them will break:</p><ul>' + broken.map(function (x) {
+      return '<li><b>' + esc(x.name) + '</b> (' + short(x.calls_per_day) + ' calls a day): ' + esc(x.reason) + '.</li>'; }).join("") + '</ul>';
+    else s2body += '<p>None of them break. Every app sends <code>amount</code> in the unit the API expects.</p>';
+    if (fc.tool) s2body += '<p class="muted" style="font-size:13px">Format check (oasdiff): ' + (fc.breaking === 0 ? "no breaking changes found" : fc.breaking + " breaking changes") + '.</p>';
+    var s2 = docSection(2, "Who will break?", broken.length ? '<span class="res warn">' + broken.length + ' of ' + c.total + ' apps break</span>' : '<span class="res ok">No apps break</span>', s2body);
+
+    var s3body = '<p>Replayed ' + n(m.replayed) + ' refunds from last week (a masked copy, sample data) through the old code and this change, against the rule <code>' + esc(m.rules[0].check) + '</code>: ' + esc(m.rules[0].message) + '.</p>';
+    if (m.wrong.length) {
+      s3body += '<p>' + n(m.wrong.length) + ' refunds broke the rule. The first three:</p><div class="tablewrap"><table><thead><tr><th>Order</th><th>App</th><th class="num">Paid</th><th class="num">This change sends</th></tr></thead><tbody>' +
+        m.wrong.slice(0, 3).map(function (w) { return '<tr><td><code>' + esc(w[1]) + '</code></td><td>' + esc(w[2]) + '</td><td class="num">' + inr(w[3]) + '</td><td class="num over">' + inr(w[5]) + '</td></tr>'; }).join("") +
+        '</tbody></table></div>';
+    } else s3body += '<p>Every one came out right.</p>';
+    var s3 = docSection(3, "Is the money right?", m.wrong.length ? '<span class="res no">' + n(m.wrong.length) + ' wrong</span>' : '<span class="res ok">All correct</span>', s3body);
+
+    var s4body;
+    if (!so.needed) s4body = '<p>No signature was needed: nothing risky was found.</p>';
+    else if (signed) {
+      var sAt = new Date(so.approved_at);
+      s4body = '<p>This change was risky, so it needed the ' + esc(so.approver_role) + '\'s approval.</p>' +
+        '<div class="sig"><p class="sig-statement">I have read the results above and approve commit <span class="ref">' + esc(a.commit) + '</span> of change #' + a.pull_request + '. This approval is for this commit only.</p>' +
+        '<div class="sig-block"><div class="signature" aria-label="Signature of ' + LEAD.name + '">' + LEAD.name + '</div>' +
+        '<div class="sigline"><b>' + LEAD.name + '</b>, ' + LEAD.role.toLowerCase() + '<br>' + longDate(sAt) + '</div></div></div>';
+    } else {
+      s4body = '<p>This change was risky, so it needs the ' + esc(so.approver_role) + '\'s approval. Countersign asked ' + LEAD.name + ' to review.</p>' +
+        '<div class="sig"><p class="sig-statement">Not signed. Merging stays blocked until the payments lead signs, or the developer fixes the change.</p>' +
+        '<div class="sig-block"><div class="sig-empty"></div><div class="sigline">Waiting for <b>' + LEAD.name + '</b>, ' + LEAD.role.toLowerCase() + '</div></div></div>';
+    }
+    var s4 = docSection(4, "Sign-off", !so.needed ? '<span class="res ok">Not needed</span>' : signed ? '<span class="res signed">Signed</span>' : '<span class="res no">Waiting</span>', s4body);
+
+    var out = a.verdict === "stopped" ? "Stopped. The change could not be merged."
+      : a.verdict === "approved" ? "Approved by the " + so.approver_role + ". The change could be merged."
+      : a.verdict === "merged" ? "Merged into <span class=\"ref\">" + esc(a.merged.into) + "</span> by " + esc(a.merged.by) + " at " + clock(new Date(a.merged.at)) + (signed ? ", with the " + so.approver_role + "'s countersignature." : ", after every check passed.")
+      : "All clear. The change could be merged.";
+    var s5 = docSection(5, "Outcome", '<span class="res ' + (vl[1] === "stop" ? "no" : vl[1] === "clear" ? "ok" : "signed") + '">' + vl[0] + '</span>', '<p>' + out + '</p>');
+
+    return '<article class="sheet doc">' +
+      '<header class="doc-h"><div class="lh"><svg width="34" height="34" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="var(--pen)"/><path d="M6 17.5c2.2-5.6 4.4-8.4 6-8.4 2 0-.6 7.6 1.4 7.6 1.6 0 2.8-4.2 4.4-4.2 1.2 0 .8 3 2 3 .9 0 1.7-.8 2.4-1.8" fill="none" stroke="var(--on-pen)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '<div><b>Countersign</b><span>Audit record</span></div></div><div class="stamp' + stampCls + '">' + vl[0] + '</div></header>' +
+      '<div class="doc-id">Record <code>' + esc(a.audit_id) + '</code> · ' + longDate(at) + '</div>' +
+      '<h2 class="doc-title">Change #' + a.pull_request + ': ' + esc(D.change.title) + '</h2>' +
+      '<dl class="facts">' +
+        '<dt>API</dt><dd><span class="ref">' + esc(a.api) + '</span></dd>' +
+        '<dt>Author</dt><dd>' + av(DEV) + esc(a.author) + ', developer</dd>' +
+        '<dt>Commit</dt><dd><span class="ref">' + esc(a.commit) + '</span> ' + esc(v.title) + '</dd>' +
+        '<dt>Branch</dt><dd><span class="ref">' + esc(D.change.branch) + '</span> into <span class="ref">' + esc(D.change.base) + '</span></dd>' +
+        '<dt>Checked by</dt><dd>Countersign, in the company\'s own CI</dd>' +
+      '</dl>' + s1 + s2 + s3 + s4 + s5 +
+      '<footer class="doc-foot"><span>Written by Countersign when it made this decision. Sample workspace: the people, payments and companies are made up.</span>' +
+        '<details class="raw"><summary>Show the raw record (JSON)</summary><pre class="json">' + esc(JSON.stringify(a, null, 2)) + '</pre></details></footer>' +
+    '</article>';
+  }
+  function docSection(num, title, result, body) {
+    return '<section class="doc-s"><h3><span class="n">' + num + '</span>' + esc(title) + result + '</h3>' + body + '</section>';
   }
 
   // ---------- How it works ----------
