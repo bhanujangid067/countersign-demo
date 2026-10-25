@@ -284,8 +284,54 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tray .sheet-b { display: flex; flex-direction: column; gap: 8px; }
 .tray .btn { width: 100%; justify-content: space-between; }
 .tray small { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
-.mergebox { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.mergebox b { white-space: nowrap; }
+.mergecard { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.mergecard .head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.mergecard .head svg { color: var(--muted); }
+.reqs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; font-size: 13.5px; }
+.reqs li { display: flex; align-items: center; gap: 9px; color: var(--ink-2); }
+.reqs .dot { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; flex: none; border: 1.5px solid var(--rule-2); color: var(--muted); background: var(--sheet); }
+.reqs .dot svg { width: 11px; height: 11px; }
+.reqs li.ok .dot { background: var(--clear); border-color: var(--clear); color: var(--sheet); }
+.reqs li.no .dot { background: var(--stop); border-color: var(--stop); color: var(--sheet); }
+.reqs li.no { color: var(--stop); font-weight: 500; }
+.reqs li .st { margin-left: auto; font-size: 12px; color: var(--muted); }
+.merge-btn { width: 100%; justify-content: center !important; padding: 11px 14px; font-size: 15px; position: relative; overflow: hidden; }
+.merge-btn > * { position: relative; }
+.merge-btn.locked { background: var(--sheet-2); color: var(--muted); border-style: dashed; cursor: not-allowed; }
+.merge-btn.locked:hover { background: var(--sheet-2) !important; border-color: var(--rule-2) !important; }
+.merge-btn.ready { background: var(--clear); border-color: var(--clear); color: var(--sheet); box-shadow: 0 0 0 4px var(--clear-soft); }
+.merge-btn.ready:hover { background: var(--clear) !important; border-color: var(--clear) !important; filter: brightness(1.08); }
+.merge-btn.working, .merge-btn.done { background: var(--pen); border-color: var(--pen); color: var(--on-pen); cursor: default; }
+.merge-btn .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--pen-hover); }
+.merge-btn.working .fill { width: 100%; transition: width 1.1s ease-in-out; }
+#mergeNote { transition: color .2s; }
+#mergeNote.flash { color: var(--stop); font-weight: 600; }
+.shake { animation: shake .42s; }
+@keyframes shake { 15%, 55% { transform: translateX(-7px); } 35%, 75% { transform: translateX(7px); } }
+
+.verdict.merged { background: var(--sheet); border-color: var(--pen); box-shadow: inset 4px 0 0 var(--pen); }
+.graph { flex: none; width: 236px; max-width: 100%; height: auto; overflow: visible; }
+.graph .main { stroke: var(--rule-2); stroke-width: 4; stroke-linecap: round; fill: none; }
+.graph .main.after { stroke: var(--pen); }
+.graph .branch { stroke: var(--pen); stroke-width: 4; fill: none; stroke-linecap: round; }
+.graph .commit { fill: var(--sheet); stroke: var(--pen); stroke-width: 3; }
+.graph .mergept { fill: var(--pen); }
+.graph .ring { fill: none; stroke: var(--pen); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: ring 1.8s ease-out 1.2s infinite; opacity: 0; }
+.graph text { font: 500 11.5px var(--font-mono); fill: var(--muted); }
+.graph text.b { fill: var(--pen); }
+.graph.animate .branch { stroke-dasharray: 260; stroke-dashoffset: 260; animation: draw 1.1s ease-in-out forwards; }
+.graph.animate .main.after { stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw .35s ease-out 1.1s forwards; }
+.graph.animate .c1 { opacity: 0; animation: pop .25s ease .45s forwards; }
+.graph.animate .c2 { opacity: 0; animation: pop .25s ease .7s forwards; }
+.graph.animate .mergept { opacity: 0; animation: pop .3s cubic-bezier(.2, .9, .3, 1.4) 1.05s forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pop { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: scale(1); } }
+@keyframes ring { 0% { transform: scale(.8); opacity: .9; } 100% { transform: scale(3); opacity: 0; } }
+.live { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--clear); margin-bottom: 4px; }
+.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px var(--clear-soft); animation: pulse 1.2s infinite; }
+.pill.merged { color: var(--on-pen); background: var(--pen); border-color: var(--pen); }
+.event.merged::before { background: var(--pen); border-color: var(--pen); }
+.event.merged b.m { color: var(--pen); }
 pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); color: var(--ink-2); background: var(--sheet-2); max-height: 300px; overflow: auto; border-radius: 0 0 var(--r) var(--r); white-space: pre-wrap; word-break: break-word; }
 
 /* how it works */
@@ -427,6 +473,8 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     pass: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.6L11 4.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     fail: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M4 4l6 6M10 4l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     warn: '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 3.5v4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="7" cy="10.6" r="1.1" fill="currentColor"/></svg>',
+    lock: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="6" width="9" height="6.5" rx="1.5" fill="currentColor"/><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+    branch: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4" cy="3.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="12.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="6" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 5.3v5.4M12 7.8c0 2.4-3 2.6-6.4 3.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     arrow: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   };
 
@@ -485,8 +533,9 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
         is_the_money_right: { passed: v.money.wrong.length === 0, replayed: v.money.replayed, wrong: v.money.wrong.length,
           rule: v.money.rules[0].check }
       },
-      sign_off: { needed: verdict !== "all clear", approver_role: ROLE, approved_by: S.approvedBy, approved_at: S.approvedAt },
+      sign_off: { needed: risky(v), approver_role: ROLE, approved_by: S.approvedBy, approved_at: S.approvedAt },
       verdict: verdict,
+      merged: verdict === "merged" ? { into: D.change.base, by: DEV.name, at: t.toISOString().replace(/\.\d+/, "") } : undefined,
       note: "Countersign demo on one sample API with made-up sample data."
     };
   }
@@ -509,6 +558,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     if (p === "running") return '<span class="pill run">Checking</span>';
     if (p === "stopped") return '<span class="pill stop">Stopped</span>';
     if (p === "approved") return '<span class="pill signed">Countersigned</span>';
+    if (p === "merged") return '<span class="pill merged">Merged</span>';
     return '<span class="pill clear">All clear</span>';
   }
   function updateNav() { document.getElementById("navCount").hidden = S.phase !== "stopped"; }
@@ -520,7 +570,8 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
   }
   function renderOverview() {
     var bad = D.bad, p = S.phase;
-    var sub = p === "stopped" ? "One change to the refund API is waiting for your signature."
+    var sub = p === "merged" ? "Change #" + D.change.number + " is merged and live. Its audit record is in the log."
+      : p === "stopped" ? "One change to the refund API is waiting for your signature."
       : p === "approved" ? "You countersigned change #" + D.change.number + ". It's recorded in the audit log."
       : p === "clear" ? "Rohan's fix passed every check. Nothing needs you right now."
       : p === "running" ? "Countersign is checking Rohan's change to the refund API."
@@ -590,6 +641,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
           '<div class="event" id="tlAsk" hidden></div>' +
           post("tlApproval", av(LEAD, "lg"), '<b>' + LEAD.name + '</b> approved and countersigned · <span id="approvalTime"></span>',
             '<div class="say"><p>I\'ve read the replay results. I\'m approving this exact commit as the payments lead. A new commit will need my signature again.</p></div>') +
+          '<div class="event merged" id="tlMerged" hidden></div>' +
         '</div>' +
       '</div><aside class="tray">' +
         '<section class="sheet"><div class="sheet-h"><h3>Presenter controls</h3></div><div class="sheet-b">' +
@@ -597,16 +649,18 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
           '<button class="btn" id="bFix" type="button">Rohan pushes a fix <kbd>F</kbd></button>' +
           '<button class="btn" id="bApprove" type="button">Ananya approves <kbd>A</kbd></button>' +
           '<button class="btn" id="bReset" type="button">Start again <kbd>0</kbd></button>' +
-          '<small>These act out what happens on GitHub, using results from a real run of the checks.</small>' +
+          '<small>These act out what happens on GitHub, using results from a real run of the checks. Press <b>M</b> to merge.</small>' +
         '</div></section>' +
-        '<section class="sheet sheet-b"><div class="mergebox"><b>Merge into main</b><button class="btn go" id="bMerge" type="button">Merge</button></div><small id="mergeNote"></small></section>' +
+        '<section class="sheet mergecard" id="mergeBox"><div class="head">' + ICON.branch + 'Merge into <span class="ref">main</span></div>' +
+          '<ul class="reqs" id="mergeReqs"></ul>' +
+          '<button class="btn merge-btn" id="bMerge" type="button"></button><small id="mergeNote"></small></section>' +
         '<section class="sheet"><div class="sheet-h"><h3>Audit record</h3><span class="aside" id="auditCount"></span></div><pre class="json" id="auditJson"></pre></section>' +
       '</aside></div>';
     document.getElementById("bRun").onclick = function () { runChecks(); };
     document.getElementById("bFix").onclick = function () { pushFix(); };
     document.getElementById("bApprove").onclick = function () { approve(); };
     document.getElementById("bReset").onclick = function () { resetDemo(); };
-    document.getElementById("bMerge").onclick = function () { toast("Merged. (Demo only: nothing really goes live.)"); };
+    document.getElementById("bMerge").onclick = function () { merge(); };
     renderDiff("bad"); renderDiff("fix");
     paint();
   }
@@ -646,7 +700,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
       if (k === "callers" && (s === "warn" || s === "pass")) sub = v.callers.affected ? v.callers.affected + " of " + v.callers.total + " apps break" : "No apps break";
       if (k === "money" && (s === "fail" || s === "pass")) sub = v.money.wrong.length ? n(v.money.wrong.length) + " refunds wrong" : "All refunds correct";
       if (k === "signoff" && s === "fail") sub = "Waiting for " + LEAD.first;
-      if (k === "signoff" && s === "pass") sub = S.phase === "approved" ? "Signed by " + LEAD.first : "Not needed";
+      if (k === "signoff" && s === "pass") sub = signedOff() ? "Signed by " + LEAD.first : "Not needed";
       return '<div class="step ' + (s === "pending" ? "" : s) + '"><div class="ico">' + icon + '</div><div class="txt"><b>' + STEP_INFO[k][0] + '</b><span>' + esc(sub) + '</span></div></div>';
     }).join("");
 
@@ -655,6 +709,9 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     if (S.phase === "idle") b.innerHTML = '<div><h2>Ready to check</h2><p>' + DEV.first + '\'s change touches <span class="ref">' + esc(D.api) + '</span>, so Countersign has to check it before it can go live. Press <b>Run Countersign</b>.</p></div>';
     else if (S.phase === "running") b.innerHTML = '<div class="spinner" aria-hidden="true"></div><div><h2>Countersign is checking this change</h2><p>It runs inside the company\'s own CI. The code and the payment data never leave.</p></div>';
     else if (S.phase === "stopped") { b.classList.add("stop"); b.innerHTML = '<div class="stamp' + stamp + '">Stopped</div><div><h2>This change can\'t go live yet</h2><p>Every normal test passes, but a ₹900.00 refund would send <b>' + inr(v.money.wrong[0][5]) + '</b>. ' + DEV.first + ' can fix it, or ' + LEAD.first + ', the payments lead, can sign off.</p></div>'; }
+    else if (S.phase === "merged") { b.classList.add("merged"); b.innerHTML = mergeGraph(S.justMerged, v.commit) + '<div><div class="live">Live</div><h2>Merged into main</h2><p>' +
+        (S.mergedFrom === "approved" ? "Merged with " + LEAD.first + "'s countersignature on commit " + esc(v.commit) + ". The approval and every check result are in the audit log."
+          : "Every check passed, so refunds now go out through " + DEV.first + "'s fixed code (commit " + esc(v.commit) + "). The record is in the audit log.") + '</p></div>'; S.justMerged = false; }
     else if (S.phase === "approved") { b.classList.add("signed"); b.innerHTML = '<div class="stamp signed' + stamp + '">Countersigned</div><div><h2>' + LEAD.name + ' signed off on this commit</h2><p>The risk was accepted by a named person, on this exact version of the code. It\'s in the audit log.</p></div>'; }
     else { b.classList.add("clear"); b.innerHTML = '<div class="stamp clear' + stamp + '">All clear</div><div><h2>Safe to go live</h2><p>Every app keeps working, and every one of last week\'s ' + n(v.money.replayed) + ' refunds comes out right.</p></div>'; }
     S.justStamped = false;
@@ -668,7 +725,10 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     var ask = document.getElementById("tlAsk");
     ask.hidden = !S.askedAt || S.version !== "bad";
     if (S.askedAt) ask.innerHTML = '<span><b>Countersign</b> asked <b>' + LEAD.name + '</b> (payments lead) to review · ' + clock(S.askedAt) + '</span>';
-    document.getElementById("tlApproval").hidden = S.phase !== "approved";
+    document.getElementById("tlApproval").hidden = !(S.phase === "approved" || (S.phase === "merged" && S.mergedFrom === "approved"));
+    var me = document.getElementById("tlMerged");
+    me.hidden = S.phase !== "merged";
+    if (S.mergedAt) me.innerHTML = '<span><b>' + DEV.name + '</b> <b class="m">merged</b> commit <span class="ref">' + esc(v.commit) + '</span> into <span class="ref">main</span> · ' + clock(S.mergedAt) + '</span>';
     if (S.approvedAt) document.getElementById("approvalTime").textContent = clock(new Date(S.approvedAt));
 
     paintCallers(); paintMoney(); paintSignoff();
@@ -678,15 +738,71 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     document.getElementById("bFix").disabled = busy || S.phase !== "stopped";
     document.getElementById("bApprove").disabled = busy || S.phase !== "stopped";
     document.getElementById("bReset").disabled = busy;
-    var canMerge = S.phase === "clear" || S.phase === "approved";
-    document.getElementById("bMerge").disabled = !canMerge;
-    document.getElementById("mergeNote").textContent = canMerge ? "All required checks have passed." :
-      S.phase === "stopped" ? "Blocked until Countersign passes." : "Waiting for Countersign.";
+    paintMerge(v);
 
     var last = S.audits[0];
     document.getElementById("auditJson").textContent = last ? JSON.stringify(last, null, 2) : "No record yet. Countersign saves one every time it decides.";
     document.getElementById("auditCount").textContent = S.audits.length ? S.audits.length + " saved" : "";
     updateNav();
+  }
+
+  function canMerge() { return S.phase === "clear" || S.phase === "approved"; }
+  function signedOff() { return S.phase === "approved" || (S.phase === "merged" && S.mergedFrom === "approved"); }
+  function paintMerge(v) {
+    var st = S.steps, p = S.phase, merged = p === "merged";
+    var cs = (p === "clear" || p === "approved" || merged) ? "ok" : p === "stopped" ? "no" : "";
+    var rows = [
+      ["Normal tests pass", st.tests === "pass" ? "ok" : "", st.tests === "pass" ? v.tests + "/" + v.tests : "waiting"],
+      ["Countersign passes", cs, cs === "ok" ? "passed" : cs === "no" ? "stopped" : "waiting"]
+    ];
+    if (risky(v)) {
+      var signed = p === "approved" || (merged && S.mergedFrom === "approved");
+      rows.push([LEAD.first + " signs off", signed ? "ok" : p === "stopped" ? "no" : "", signed ? "signed" : "waiting"]);
+    }
+    document.getElementById("mergeReqs").innerHTML = rows.map(function (r) {
+      var icon = r[1] === "ok" ? ICON.pass : r[1] === "no" ? ICON.fail : "";
+      return '<li class="' + r[1] + '"><span class="dot">' + icon + '</span>' + r[0] + '<span class="st">' + r[2] + '</span></li>';
+    }).join("");
+    var btn = document.getElementById("bMerge"), note = document.getElementById("mergeNote");
+    note.classList.remove("flash");
+    if (merged) { btn.className = "btn merge-btn done"; btn.innerHTML = '<span>' + ICON.pass.replace('viewBox', 'width="14" height="14" viewBox') + '</span><span>Merged</span>'; note.textContent = "Merged into main at " + clock(S.mergedAt) + "."; }
+    else if (canMerge()) { btn.className = "btn merge-btn ready"; btn.innerHTML = '<span>Merge into main</span>'; note.textContent = "Everything required has passed."; }
+    else {
+      btn.className = "btn merge-btn locked"; btn.innerHTML = '<span>' + ICON.lock + '</span><span>' + (p === "stopped" ? "Merge blocked" : "Waiting for checks") + '</span>';
+      note.textContent = p === "stopped" ? "Countersign found " + n(v.money.wrong.length) + " wrong refunds. " + DEV.first + " can fix it, or " + LEAD.first + " can sign off."
+        : p === "running" ? "Countersign is still checking." : "Countersign has to check this change first.";
+    }
+    btn.setAttribute("aria-disabled", String(!canMerge()));
+  }
+  function mergeGraph(animate, commit) {
+    return '<svg class="graph' + (animate ? " animate" : "") + '" viewBox="0 0 236 78" role="img" aria-label="Branch merged into main">' +
+      '<path class="main" d="M8 56 H186"/>' +
+      '<path class="branch" d="M26 56 C46 56 44 24 66 24 H150 C172 24 170 56 186 56"/>' +
+      '<path class="main after" d="M186 56 H228"/>' +
+      '<circle class="commit c1" cx="94" cy="24" r="6"/><circle class="commit c2" cx="124" cy="24" r="6"/>' +
+      '<circle class="ring" cx="186" cy="56" r="8"/><circle class="mergept" cx="186" cy="56" r="8"/>' +
+      '<text x="8" y="75">main</text><text class="b" x="66" y="13">' + esc(D.change.branch) + ' · ' + esc(commit) + '</text></svg>';
+  }
+  async function merge() {
+    if (S.busy || S.phase === "merged") return;
+    if (current() !== "change") { location.hash = "#/change"; return; }
+    if (!canMerge()) {
+      var box = document.getElementById("mergeBox"), note = document.getElementById("mergeNote");
+      box.classList.remove("shake"); void box.offsetWidth; box.classList.add("shake");
+      note.classList.add("flash");
+      toast(S.phase === "stopped" ? "Merge blocked. Countersign stopped this change." : S.phase === "running" ? "Wait for Countersign to finish." : "Run Countersign first.");
+      return;
+    }
+    S.busy = true; S.mergedFrom = S.phase;
+    var btn = document.getElementById("bMerge");
+    btn.innerHTML = '<span class="fill"></span><span>Merging…</span>'; void btn.offsetWidth; btn.className = "btn merge-btn working";
+    ["bRun", "bFix", "bApprove", "bReset"].forEach(function (id) { document.getElementById(id).disabled = true; });
+    await sleep(1300);
+    S.phase = "merged"; S.mergedAt = now(); S.justMerged = true; S.justStamped = false;
+    S.audits.unshift(makeAudit("merged"));
+    log(DEV, "merged #" + D.change.number + " into main (commit " + V().commit + ")");
+    S.busy = false; paint(); focusOn("verdict");
+    toast("Merged into main. It's live.");
   }
 
   function checkShell(el, k, num, answerHtml, body) {
@@ -776,11 +892,11 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     var el = document.getElementById("chkSignoff"), s = S.steps.signoff, v = V();
     if (!el) return;
     var answer = s === "fail" ? '<div class="answer stop">Needs ' + LEAD.first + '</div>'
-      : s === "pass" ? '<div class="answer ' + (S.phase === "approved" ? "signed" : "clear") + '">' + (S.phase === "approved" ? "Countersigned" : "Not needed") + '</div>' : "";
+      : s === "pass" ? '<div class="answer ' + (signedOff() ? "signed" : "clear") + '">' + (signedOff() ? "Countersigned" : "Not needed") + '</div>' : "";
     var body;
     if (s === "pending") body = '<p class="explain">If anything is risky, the change waits until a named person, the payments lead, approves this exact version. It\'s a bank\'s maker–checker rule, for code.</p>';
     else if (s === "running") body = '<p class="explain">Working out who needs to sign…</p>';
-    else if (S.phase === "approved") {
+    else if (signedOff()) {
       body = '<div class="signoff"><div class="person">' + av(LEAD, "lg") + '<div><b>' + LEAD.name + '</b><span>' + LEAD.role + '</span></div></div>' +
         '<div><div class="signature' + (S.justSigned ? " write" : "") + '" aria-label="Signature of ' + LEAD.name + '">' + LEAD.name + '</div>' +
         '<div class="sigline">' + longDate(new Date(S.approvedAt)) + ' · commit ' + esc(v.commit) + '</div></div></div>';
@@ -890,7 +1006,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
   // ---------- Audit log ----------
   function renderAudit() {
     var rows = S.audits.map(function (a, i) {
-      var cls = a.verdict === "stopped" ? "stop" : a.verdict === "approved" ? "signed" : "clear";
+      var cls = a.verdict === "stopped" ? "stop" : a.verdict === "approved" ? "signed" : a.verdict === "merged" ? "merged" : "clear";
       return '<tr><td><code>' + esc(a.audit_id) + '</code></td><td>#' + a.pull_request + ' · <span class="ref">' + esc(a.commit) + '</span></td>' +
         '<td><span class="pill ' + cls + '">' + esc(a.verdict) + '</span></td><td>' + esc(a.sign_off.approved_by || (a.sign_off.needed ? "waiting" : "not needed")) + '</td>' +
         '<td class="num">' + clock(new Date(a.created_at)) + '</td><td><button class="btn" type="button" data-show="' + i + '" style="padding:4px 10px;font-size:13px">View</button></td></tr>';
@@ -954,6 +1070,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
     else if (k === "f") pushFix();
     else if (k === "a") approve();
     else if (k === "0") resetDemo();
+    else if (k === "m") merge();
   });
 
   route();
@@ -965,6 +1082,7 @@ pre.json { margin: 0; padding: 14px 16px; font: 11.5px/1.55 var(--font-mono); co
       await sleep(1800); await runChecks();
       await sleep(4000);
       if (play === "approve") await approve(); else await pushFix();
+      await sleep(3000); await merge();
     })();
   }
 })();
