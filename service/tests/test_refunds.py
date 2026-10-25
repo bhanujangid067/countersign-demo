@@ -6,14 +6,24 @@ from service.refund_api import create_refund
 
 
 def test_full_refund_of_900_rupees():
-    result = create_refund({"order_id": "ord_test01", "amount": 900})
+    result = create_refund({"order_id": "ord_test01", "amount": 900, "unit": "rupees"})
     assert result["refund_paise"] == 90000
     assert result["status"] == "sent_to_bank"
 
 
 def test_small_refund():
-    result = create_refund({"order_id": "ord_test02", "amount": 49.50})
+    result = create_refund({"order_id": "ord_test02", "amount": 49.50, "unit": "rupees"})
     assert result["refund_paise"] == 4950
+
+
+def test_paise_is_still_the_default():
+    result = create_refund({"order_id": "ord_test05", "amount": 90000})
+    assert result["refund_paise"] == 90000
+
+
+def test_rejects_unknown_unit():
+    with pytest.raises(ValueError):
+        create_refund({"order_id": "ord_test06", "amount": 900, "unit": "dollars"})
 
 
 def test_rejects_zero():

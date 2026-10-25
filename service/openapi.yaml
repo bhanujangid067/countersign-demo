@@ -91,8 +91,14 @@ components:
           type: string
         amount:
           type: number
-          description: Amount to refund, in rupees (for example 900 or 49.50).
-          x-unit: rupees
+          description: Amount to refund. In paise (₹1 = 100 paise) unless `unit` says rupees.
+          x-unit: paise
+          x-unit-field: unit
+        unit:
+          type: string
+          enum: [paise, rupees]
+          default: paise
+          description: Unit of `amount`. Leave it out to send paise, as before.
     Refund:
       type: object
       properties:
