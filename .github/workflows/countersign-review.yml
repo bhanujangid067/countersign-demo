@@ -1,0 +1,33 @@
+# When someone approves (or an approval is dismissed), re-run the PR's Countersign run.
+# GitHub keeps results from different triggers side by side, so a separate "review" run
+# couldn't replace the red ✗. A re-run of the same run does.
+name: Countersign re-check after review
+
+on:
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  actions: write   # to re-run the Countersign run
+
+jobs:
+  rerun:
+    name: Re-run Countersign after review
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Re-run the Countersign check for this commit
+        run: |
+          run=$(gh api "repos/$REPO/actions/workflows/countersign.yml/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=1" \
+                --jq '.workflow_runs[0] | "\(.id) \(.status)"')
+          id=${run% *}; status=${run#* }
+          if [ -z "$id" ] || [ "$id" = "null" ]; then
+            echo "No Countersign run for $HEAD_SHA yet; it will see the review when it runs."
+          elif [ "$status" != "completed" ]; then
+            echo "Countersign run $id is still running; it will see the review when it reaches Check 3."
+          else
+            gh api -X POST "repos/$REPO/actions/runs/$id/rerun" && echo "Re-running Countersign run $id"
+          fi

@@ -4,9 +4,8 @@ name: Countersign
 
 on:
   pull_request:
-  # Run again when someone reviews, so the payments lead's approval can turn the check green.
-  pull_request_review:
-    types: [submitted, dismissed]
+  # When someone reviews, countersign-review.yml re-runs this same run, so the payments lead's
+  # approval replaces the red result instead of sitting next to it.
 
 permissions:
   contents: read
