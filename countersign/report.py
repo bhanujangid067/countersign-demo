@@ -163,7 +163,7 @@ def main() -> int:
         print(paint(f"  ✓ Approved by {role} (@{approval['login']})", "green", "bold"))
     else:
         print(paint("  ✓ No sign-off needed — ALL CLEAR", "green", "bold"))
-    print(paint(f"  Audit record {audit_id} saved to {args.out_dir / 'audit.json'}", "dim"))
+    print(paint(f"  Audit record saved: {audit_id}", "dim"))
     return 1 if verdict == "stopped" else 0
 
 

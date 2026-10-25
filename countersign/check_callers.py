@@ -133,7 +133,7 @@ def main() -> int:
             if entry.get("fields_read"):
                 reason = "reads " + ", ".join(entry["fields_read"]) + " only"
             else:
-                reason = "doesn't send a changed field"
+                reason = "doesn't use the changed field"
         for name in uses:
             sends = entry["units"][name]
             reads = unit_api_reads(head_ops[op][name], entry, name)
@@ -146,7 +146,7 @@ def main() -> int:
             if old and (old.get("units") != entry.get("units") or old.get("fields_sent") != entry.get("fields_sent")):
                 reason = f"updated to {sends} in this change"
             elif was == reads:
-                reason = "unchanged"
+                reason = "works as before"
         callers.append({
             "caller": entry["caller"], "name": entry["name"], "calls_per_day": entry["calls_per_day"],
             "affected": affected, "reason": reason,

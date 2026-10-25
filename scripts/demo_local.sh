@@ -28,10 +28,11 @@ for ref in main bad-change fix; do
   git archive "$ref" | tar -x -C "$WORK/$ref"
 done
 
-bold()  { printf '\033[1m%s\033[0m\n' "$1"; }
+if [ -n "${NO_COLOR:-}" ]; then B="" T="" R=""; else B=$'\033[1m' T=$'\033[1;34m' R=$'\033[0m'; fi
+bold()  { echo "$B$1$R"; }
 title() {
   echo
-  printf '\033[1;34m━━ %s ━━\033[0m\n' "$1"
+  echo "$T━━ $1 ━━$R"
   if [ "$PAUSE" = 1 ]; then read -rp "   (press Enter) " _; fi
 }
 
