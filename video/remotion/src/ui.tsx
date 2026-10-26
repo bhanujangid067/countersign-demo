@@ -5,19 +5,16 @@ import { C, MONO, SANS } from "./theme";
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 export const easeOut = Easing.bezier(0.16, 1, 0.3, 1);
 
-// Paper background with a faint dot grid that drifts slowly, so still frames never feel frozen.
-export const Paper: React.FC<{ dark?: boolean }> = ({ dark }) => {
+// Warm ivory paper with a faint dot grid that drifts slowly, so still frames never feel frozen.
+export const Paper: React.FC<{ deep?: boolean }> = ({ deep }) => {
   const frame = useCurrentFrame();
-  const dot = dark ? "rgba(255,255,255,0.06)" : "rgba(22,33,44,0.07)";
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: dark ? C.night : C.paper,
-        backgroundImage: `radial-gradient(${dot} 1.4px, transparent 1.6px)${
-          dark ? ", radial-gradient(ellipse at 50% 35%, rgba(31,61,140,0.35), transparent 65%)" : ""
-        }`,
-        backgroundSize: dark ? "34px 34px, 100% 100%" : "34px 34px",
-        backgroundPosition: `${frame * 0.15}px ${frame * 0.1}px${dark ? ", 0 0" : ""}`,
+        backgroundColor: deep ? C.paperDeep : C.paper,
+        backgroundImage: "radial-gradient(rgba(26,26,26,0.075) 1.3px, transparent 1.5px), radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.55), transparent 70%)",
+        backgroundSize: "32px 32px, 100% 100%",
+        backgroundPosition: `${frame * 0.12}px ${frame * 0.08}px, 0 0`,
       }}
     />
   );
@@ -63,8 +60,8 @@ export const Captions: React.FC<{ text: string; seconds: number }> = ({ text, se
           fontWeight: 500,
           fontSize: 37,
           lineHeight: 1.3,
-          color: "#fff",
-          background: "rgba(14,21,29,0.88)",
+          color: C.paper,
+          background: "rgba(26,26,26,0.9)",
           padding: "12px 30px 14px",
           borderRadius: 14,
           boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
@@ -96,11 +93,11 @@ export const BrowserFrame: React.FC<{
         borderRadius: 16,
         overflow: "hidden",
         background: C.sheet,
-        boxShadow: "0 40px 90px rgba(5,10,20,0.45), 0 0 0 1px rgba(0,0,0,0.08)",
+        boxShadow: "0 50px 100px rgba(40,30,15,0.28), 0 12px 30px rgba(40,30,15,0.14), 0 0 0 1px rgba(26,26,26,0.08)",
         ...style,
       }}
     >
-      <div style={{ height: 46, display: "flex", alignItems: "center", gap: 9, padding: "0 18px", background: "#eceee8", borderBottom: "1px solid #dcdfd6" }}>
+      <div style={{ height: 46, display: "flex", alignItems: "center", gap: 9, padding: "0 18px", background: "#e4dfd5", borderBottom: "1px solid #d6cfc2" }}>
         {["#ff5f57", "#febc2e", "#28c840"].map((c) => (
           <div key={c} style={{ width: 13, height: 13, borderRadius: 7, background: c }} />
         ))}
@@ -110,7 +107,7 @@ export const BrowserFrame: React.FC<{
             display: "flex",
             alignItems: "center",
             gap: 8,
-            background: "#fff",
+            background: C.sheet,
             borderRadius: 8,
             padding: "5px 18px",
             fontFamily: MONO,
@@ -134,7 +131,7 @@ export const BrowserFrame: React.FC<{
 };
 
 // A chapter label that slides in, holds, and leaves.
-export const Chip: React.FC<{ label: string; sub?: string; duration: number; color?: string }> = ({ label, sub, duration, color = C.pen }) => {
+export const Chip: React.FC<{ label: string; sub?: string; duration: number; color?: string; x?: number; y?: number }> = ({ label, sub, duration, color = C.ink, x = 150, y = 110 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({ frame, fps, config: { damping: 200 }, durationInFrames: 18 });
@@ -143,19 +140,19 @@ export const Chip: React.FC<{ label: string; sub?: string; duration: number; col
     <div
       style={{
         position: "absolute",
-        left: 180,
-        top: 8,
+        left: x,
+        top: y,
         opacity: enter * exit,
         translate: `${interpolate(enter, [0, 1], [-40, 0])}px 0`,
         display: "flex",
         alignItems: "center",
         gap: 14,
         background: color,
-        color: "#fff",
+        color: C.paper,
         borderRadius: 12,
         padding: "9px 20px 9px 12px",
         fontFamily: SANS,
-        boxShadow: "0 14px 34px rgba(5,10,20,0.35)",
+        boxShadow: "0 14px 34px rgba(40,30,15,0.3)",
         zIndex: 5,
       }}
     >
@@ -168,12 +165,13 @@ export const Chip: React.FC<{ label: string; sub?: string; duration: number; col
 };
 
 // A card of key facts that springs in on the right.
-export const Callout: React.FC<{ duration: number; children: React.ReactNode; top?: number; accent?: string; width?: number }> = ({
+export const Callout: React.FC<{ duration: number; children: React.ReactNode; top?: number; accent?: string; width?: number; side?: "left" | "right" }> = ({
   duration,
   children,
   top = 520,
   accent = C.pen,
   width = 470,
+  side = "right",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -183,16 +181,17 @@ export const Callout: React.FC<{ duration: number; children: React.ReactNode; to
     <div
       style={{
         position: "absolute",
-        right: 96,
+        [side]: 70,
         top,
         width,
         opacity: Math.min(1, enter * 1.4) * exit,
-        translate: `${interpolate(enter, [0, 1], [80, 0])}px 0`,
+        translate: `${interpolate(enter, [0, 1], [side === "right" ? 80 : -80, 0])}px 0`,
+        filter: `blur(${interpolate(enter, [0, 1], [6, 0], clamp)}px)`,
         scale: String(interpolate(enter, [0, 1], [0.94, 1])),
         background: C.sheet,
         borderRadius: 18,
         padding: "24px 28px 26px",
-        boxShadow: "0 30px 70px rgba(5,10,20,0.4)",
+        boxShadow: "0 30px 70px rgba(40,30,15,0.3), 0 0 0 1px rgba(26,26,26,0.06)",
         borderTop: `6px solid ${accent}`,
         fontFamily: SANS,
         color: C.ink,
@@ -231,20 +230,3 @@ export const Cross: React.FC<{ color: string; size?: number }> = ({ color, size 
   </svg>
 );
 
-// The Countersign mark: a pen-ink square with a signature stroke that can draw itself.
-export const Logo: React.FC<{ size: number; draw?: number }> = ({ size, draw = 1 }) => (
-  <svg width={size} height={size} viewBox="0 0 28 28" style={{ flex: "none" }}>
-    <rect width="28" height="28" rx="7" fill={C.pen} />
-    <path
-      d="M6 17.5c2.2-5.6 4.4-8.4 6-8.4 2 0-.6 7.6 1.4 7.6 1.6 0 2.8-4.2 4.4-4.2 1.2 0 .8 3 2 3 .9 0 1.7-.8 2.4-1.8"
-      fill="none"
-      stroke="#fff"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeDasharray="40"
-      strokeDashoffset={40 * (1 - draw)}
-    />
-    <path d="M6.5 21h15" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" opacity={0.55 * draw} />
-  </svg>
-);

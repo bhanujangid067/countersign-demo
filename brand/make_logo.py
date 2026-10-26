@@ -1,126 +1,181 @@
-"""Build the Countersign logo files (SVG).
+"""Build the Countersign logo files (SVG) from the final logo image.
 
-The mark: $_ , a terminal prompt waiting for the next command. $ is what a shell shows,
-and it hints at money: Countersign sits in the pipeline, in front of code that moves money.
-The name: "countersign" in IBM Plex Mono SemiBold, lowercase, like code.
-Letters are turned into outlines, so the logo looks the same everywhere, even without the font.
+The mark: two halves of an S that lock together, with a spark where they meet.
+Two people, two signatures: the change only goes through when both halves meet.
 
-Usage: <python with fonttools + brotli> brand/make_logo.py
-Writes brand/*.svg
+The source is brand/source/countersign-logo-original.png. Each shape is traced into a smooth
+vector outline with potrace, so the logo stays sharp at any size.
+
+Usage: brew install potrace; <python with pillow, numpy, scipy> brand/make_logo.py
+Writes brand/*.svg and brand/parts.json (the traced shapes, used by the video).
 """
 
+import json
+import re
+import subprocess
+import tempfile
 from pathlib import Path
 
-from fontTools.pens.boundsPen import BoundsPen
-from fontTools.pens.svgPathPen import SVGPathPen
-from fontTools.pens.transformPen import TransformPen
-from fontTools.ttLib import TTFont
+import numpy as np
+from PIL import Image
+from scipy import ndimage
 
 HERE = Path(__file__).resolve().parent
-FONTS = HERE.parent / "video" / "remotion" / "public" / "fonts"
-MARK_FONT = FONTS / "IBMPlexMono-700-latin.woff2"
-NAME_FONT = FONTS / "IBMPlexMono-600-latin.woff2"
+SOURCE = HERE / "source" / "countersign-logo-original.png"
+UP = 4  # trace at 4x the image size, for smoother curves
 
-# Colours: a dark terminal with a green cursor.
-TERMINAL = "#0e151d"
-INK = "#16212c"
-WHITE = "#ffffff"
-CURSOR_ON_DARK = "#5fd39a"
-CURSOR_ON_LIGHT = "#17734a"
+INK = "#1a1a1a"
+SPARK = "#f27236"
+IVORY = "#eae6de"
+PAPER = "#f9f8f6"
+NIGHT = "#141414"
 
-# The $ and the cursor on a 64 x 64 grid.
-DOLLAR_SIZE = 40.0
-CURSOR_W, CURSOR_H, CURSOR_GAP = 14.0, 5.2, 2.6
+# The spark is drawn by hand (in source pixels) rather than traced: it is small, and a clean
+# geometric star looks better than a trace of its soft edges. Straight on the left, long point to the right.
+SPARK_PATH = "M635 547Q645 577 671 583Q645 589 635 619Q635.5 592 628 583Q635.5 574 635 547Z"
 
 
-def outline(font: TTFont, char: str, size: float, x: float, baseline: float) -> tuple[str, tuple[float, float, float, float]]:
-    """One character's outline at `size` (origin x, baseline y) and its bounds."""
-    glyphs = font.getGlyphSet()
-    name = font.getBestCmap()[ord(char)]
-    s = size / font["head"].unitsPerEm
-    pen, bounds = SVGPathPen(glyphs), BoundsPen(glyphs)
-    glyphs[name].draw(TransformPen(pen, (s, 0, 0, -s, x, baseline)))
-    glyphs[name].draw(TransformPen(bounds, (s, 0, 0, -s, x, baseline)))
-    return pen.getCommands(), bounds.bounds
+def trace(mask: np.ndarray, x0: int, y0: int) -> str:
+    """Trace a 0/1 mask (cropped at x0, y0 in the source image) into one SVG path in source pixels."""
+    h, w = mask.shape
+    big = Image.fromarray((mask * 255).astype(np.uint8)).resize((w * UP, h * UP), Image.LANCZOS)
+    bits = (np.asarray(big) > 127)
+    with tempfile.TemporaryDirectory() as tmp:
+        pbm, out = Path(tmp) / "m.pbm", Path(tmp) / "m.svg"
+        Image.fromarray(~bits).convert("1").save(pbm)  # potrace traces black pixels
+        subprocess.run(["potrace", str(pbm), "-b", "svg", "-u", "1", "-t", "8", "-a", "1.0", "-O", "0.4", "--flat", "-o", str(out)], check=True)
+        svg = out.read_text()
+    d = " ".join(re.findall(r'\bd="([^"]+)"', svg))
+    height = h * UP
+    # potrace draws upside down (y up). Turn its path into source pixels: x = x0 + X/UP, y = y0 + (height - Y)/UP.
+    tokens = re.findall(r"[MmCcLlZz]|-?\d+(?:\.\d+)?", d)
+    out_d, cmd, nums = [], None, []
+
+    def flush():
+        if cmd is None:
+            return
+        pts = []
+        for i in range(0, len(nums), 2):
+            X, Y = nums[i], nums[i + 1]
+            if cmd == "M":
+                pts += [x0 + X / UP, y0 + (height - Y) / UP]
+            else:  # relative: only scale and flip
+                pts += [X / UP, -Y / UP]
+        out_d.append(cmd + " ".join(f"{v:.2f}" for v in pts))
+
+    for t in tokens:
+        if t in "MmCcLl":
+            flush()
+            cmd, nums = t, []
+        elif t in "Zz":
+            flush()
+            out_d.append("z")
+            cmd, nums = None, []
+        else:
+            nums.append(float(t))
+    flush()
+    return "".join(out_d)
 
 
-def prompt(dollar: str, cursor: str) -> str:
-    """$_ without a background, centred on the 64 x 64 grid."""
-    font = TTFont(MARK_FONT)
-    _, (x0, y0, x1, y1) = outline(font, "$", DOLLAR_SIZE, 0, 0)  # y is negative above the baseline
-    width = (x1 - x0) + CURSOR_GAP + CURSOR_W
-    left = (64 - width) / 2
-    baseline = 32 - (y0 + y1) / 2 + 1.0  # centre the $ vertically, nudged down a touch for the cursor's weight
-    path, (_, _, dx1, _) = outline(font, "$", DOLLAR_SIZE, left - x0, baseline)
-    cx = dx1 + CURSOR_GAP
-    return (f'<path d="{path}" fill="{dollar}"/>'
-            f'<rect x="{cx:.2f}" y="{baseline - CURSOR_H:.2f}" width="{CURSOR_W}" height="{CURSOR_H}" rx="1.4" fill="{cursor}"/>')
+def parts() -> dict:
+    a = np.asarray(Image.open(SOURCE).convert("RGB")).astype(int)
+    r, b = a[..., 0], a[..., 2]
+    # How much "ink" each pixel has (0 = paper, 1 = black), keeping the soft edges for smooth tracing.
+    ink = np.clip((745 - a.sum(2)) / (745 - 78), 0, 1)
+    spark = np.clip((r - b - 20) / 150, 0, 1)
+    ink = np.clip(ink - spark, 0, 1)
+    labels, _ = ndimage.label(ink > 0.5)
+    boxes = ndimage.find_objects(labels)
+    sizes = [(labels[s] == i + 1).sum() for i, s in enumerate(boxes)]
+    big = sorted(range(len(boxes)), key=lambda i: -sizes[i])[:2]  # the two halves of the S
+    top, bottom = sorted(big, key=lambda i: boxes[i][0].start)
+
+    def crop(mask, sl, pad=6):
+        y0, y1 = max(sl[0].start - pad, 0), sl[0].stop + pad
+        x0, x1 = max(sl[1].start - pad, 0), sl[1].stop + pad
+        return trace(mask[y0:y1, x0:x1], x0, y0)
+
+    def only(i):
+        grown = ndimage.binary_dilation(labels == i + 1, iterations=3)
+        return ink * grown
+
+    mark_bottom = max(boxes[top][0].stop, boxes[bottom][0].stop)
+    word = ink.copy()
+    word[: mark_bottom + 10] = 0
+    wy, wx = np.nonzero(word > 0.5)
+    word_box = (slice(wy.min(), wy.max() + 1), slice(wx.min(), wx.max() + 1))
+    return {
+        "top": crop(only(top), boxes[top]),
+        "bottom": crop(only(bottom), boxes[bottom]),
+        "spark": SPARK_PATH,
+        "word": crop(word, word_box),
+        # Bounds in source pixels: x, y, width, height.
+        "mark_box": [int(boxes[top][1].start), int(boxes[top][0].start),
+                     int(boxes[bottom][1].stop - boxes[top][1].start), int(mark_bottom - boxes[top][0].start)],
+        "word_box": [int(wx.min()), int(wy.min()), int(wx.max() - wx.min() + 1), int(wy.max() - wy.min() + 1)],
+    }
 
 
-def tile(fill: str, stroke: str | None = None) -> str:
-    edge = f' stroke="{stroke}" stroke-width="1.5"' if stroke else ""
-    inset = 0.75 if stroke else 0
-    return f'<rect x="{inset}" y="{inset}" width="{64 - 2 * inset}" height="{64 - 2 * inset}" rx="15"{edge} fill="{fill}"/>'
-
-
-def name(size: float) -> tuple[str, float]:
-    """Outline of "countersign" (baseline at y=0) and its width."""
-    font = TTFont(NAME_FONT)
-    glyphs = font.getGlyphSet()
-    cmap = font.getBestCmap()
-    s = size / font["head"].unitsPerEm
-    x, parts = 0.0, []
-    for ch in "countersign":
-        pen = SVGPathPen(glyphs)
-        glyphs[cmap[ord(ch)]].draw(TransformPen(pen, (s, 0, 0, -s, x, 0)))
-        parts.append(pen.getCommands())
-        x += glyphs[cmap[ord(ch)]].width * s - 0.02 * size  # slightly tighter than code spacing
-    return "".join(parts), x + 0.02 * size
-
-
-def svg(width: float, height: float, body: str) -> str:
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:g} {height:g}" width="{width:g}" height="{height:g}" '
-            f'role="img" aria-label="Countersign"><title>Countersign</title>{body}</svg>\n')
+def svg(view: tuple[float, float, float, float], body: str, scale: float = 1.0) -> str:
+    x, y, w, h = view
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x:.1f} {y:.1f} {w:.1f} {h:.1f}" '
+            f'width="{w * scale:.0f}" height="{h * scale:.0f}" role="img" aria-label="Countersign"><title>Countersign</title>{body}</svg>\n')
 
 
 def main() -> None:
-    dark_mark = tile(TERMINAL) + prompt(WHITE, CURSOR_ON_DARK)
-    light_mark = tile(WHITE, "#e0e3da") + prompt(INK, CURSOR_ON_LIGHT)
+    p = parts()
+    (HERE / "parts.json").write_text(json.dumps(p, indent=1))
+    mx, my, mw, mh = p["mark_box"]
+    wx, wy, ww, wh = p["word_box"]
+
+    def mark(ink: str, spark: str = SPARK) -> str:
+        return f'<path d="{p["top"]}" fill="{ink}"/><path d="{p["bottom"]}" fill="{ink}"/><path d="{p["spark"]}" fill="{spark}"/>'
+
+    def word(ink: str, dx: float = 0, dy: float = 0, s: float = 1) -> str:
+        if dx == dy == 0 and s == 1:
+            return f'<path d="{p["word"]}" fill="{ink}"/>'
+        # Move the word (scaled by s around its top-left corner) so its top-left lands at (dx, dy).
+        return f'<path d="{p["word"]}" fill="{ink}" transform="translate({dx:.2f} {dy:.2f}) scale({s}) translate({-wx} {-wy})"/>'
+
+    def tile(fill: str) -> tuple[tuple[float, float, float, float], str]:
+        side = mh * 1.32
+        x, y = mx + mw / 2 - side / 2, my + mh / 2 - side / 2
+        return (x, y, side, side), f'<rect x="{x:.1f}" y="{y:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{side * 0.22:.1f}" fill="{fill}"/>'
+
+    pad = 0.12 * mh
+    mark_view = (mx - (mh - mw) / 2 - pad, my - pad, mh + 2 * pad, mh + 2 * pad)
+    tview, ttile = tile(NIGHT)
+    lview, ltile = tile(IVORY)
+    # Stacked: the original layout.
+    top, bottom = my, wy + wh
+    left, right = min(mx, wx), max(mx + mw, wx + ww)
+    sp = 0.14 * (bottom - top)
+    stacked = (left - sp, top - sp, right - left + 2 * sp, bottom - top + 2 * sp)
+    # Side by side: the word, scaled so its height is 30% of the mark, centred on the mark.
+    s = 0.30 * mh / wh
+    gx = mx + mw + 0.22 * mh
+    gy = my + mh / 2 - wh * s / 2
+    wide = (mx - 0.1 * mh, my - 0.1 * mh, gx + ww * s - mx + 0.2 * mh, mh * 1.2)
+
     files = {
-        "countersign-mark.svg": svg(64, 64, dark_mark),
-        "countersign-mark-light.svg": svg(64, 64, light_mark),
-        "countersign-symbol.svg": svg(64, 64, prompt(INK, CURSOR_ON_LIGHT)),
-        "countersign-symbol-on-dark.svg": svg(64, 64, prompt(WHITE, CURSOR_ON_DARK)),
-        "countersign-symbol-mono.svg": svg(64, 64, prompt(INK, INK)),
+        "countersign-logo-stacked.svg": svg(stacked, mark(INK) + word(INK)),
+        "countersign-logo-stacked-on-dark.svg": svg(stacked, f'<rect x="{stacked[0]}" y="{stacked[1]}" width="{stacked[2]}" height="{stacked[3]}" fill="{NIGHT}"/>' + mark(IVORY) + word(IVORY)),
+        "countersign-logo.svg": svg(wide, mark(INK) + word(INK, gx, gy, s)),
+        "countersign-logo-on-dark.svg": svg(wide, mark(IVORY) + word(IVORY, gx, gy, s)),
+        "countersign-logo-mono.svg": svg(wide, mark(INK, INK) + word(INK, gx, gy, s)),
+        "countersign-symbol.svg": svg(mark_view, mark(INK)),
+        "countersign-symbol-on-dark.svg": svg(mark_view, mark(IVORY)),
+        "countersign-mark.svg": svg(tview, ttile + mark(IVORY)),
+        "countersign-mark-light.svg": svg(lview, ltile + mark(INK)),
+        "countersign-wordmark.svg": svg((wx - 8, wy - 8, ww + 16, wh + 16), word(INK)),
     }
     files["favicon.svg"] = files["countersign-mark.svg"]
-
-    # Side by side: the name's lowercase letters centred on the mark.
-    size = 34.0
-    word, width = name(size)
-    xh = 0.516 * size  # Plex Mono x-height
-    gap, baseline = 16.0, 32 + xh / 2
-    total = 64 + gap + width
-    place = f'transform="translate({64 + gap:g} {baseline:.2f})"'
-    files["countersign-logo.svg"] = svg(total, 64, dark_mark + f'<path d="{word}" {place} fill="{INK}"/>')
-    files["countersign-logo-on-dark.svg"] = svg(total, 64, tile("#1a2430") + prompt(WHITE, CURSOR_ON_DARK) + f'<path d="{word}" {place} fill="{WHITE}"/>')
-    files["countersign-logo-mono.svg"] = svg(total, 64, prompt(INK, INK) + f'<path d="{word}" {place} fill="{INK}"/>')
-
-    # Stacked, for square spaces.
-    s_size = 26.0
-    s_word, s_w = name(s_size)
-    s_width = max(64.0, s_w) + 16
-    s_height = 64 + 14 + 0.73 * s_size + 8
-    files["countersign-logo-stacked.svg"] = svg(s_width, s_height,
-        f'<g transform="translate({(s_width - 64) / 2:.2f} 0)">{dark_mark}</g>'
-        f'<path d="{s_word}" transform="translate({(s_width - s_w) / 2:.2f} {64 + 14 + 0.516 * s_size + 4:.2f})" fill="{INK}"/>')
-
     for old in HERE.glob("*.svg"):
         if old.name not in files:
             old.unlink()
-    for fname, text in files.items():
-        (HERE / fname).write_text(text)
-        print(fname)
+    for name, text in files.items():
+        (HERE / name).write_text(text)
+        print(name)
 
 
 if __name__ == "__main__":

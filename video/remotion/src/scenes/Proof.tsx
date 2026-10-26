@@ -1,86 +1,155 @@
 import { Audio } from "@remotion/media";
 import type React from "react";
-import { AbsoluteFill, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import sizes from "../../public/github/sizes.json";
+import terminal from "../../public/github/terminal.json";
 import { C, MONO, SANS } from "../theme";
-import { DUR, line, proof2At, VOICE_IN } from "../timing";
-import { BrowserFrame, Callout, Captions, Cross, easeOut, Highlight, Paper, Tick } from "../ui";
+import { DUR, line, proof2At, said, VOICE_IN } from "../timing";
+import { Captions, easeOut, Highlight, Paper } from "../ui";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-const WIN = { x: 300, y: 214, width: 1320 };
-const VW = WIN.width;
+const AREA = { cx: 960, top: 214, maxW: 1500, maxH: 690 }; // where the cards sit
+const OUT = 14; // frames a card takes to leave
 
-// One real GitHub screenshot: where the camera starts and ends (x, y, width in image pixels),
-// and the boxes to draw around what matters (x, y, w, h in image pixels, appearing `at` seconds in).
-type Mark = { box: [number, number, number, number]; color: string; at: number };
-type Shot = { src: string; start: number; end: number; from: [number, number, number]; to: [number, number, number]; marks: Mark[] };
+type ShotName = keyof typeof sizes;
+type MarkBox = { x: number; y: number; w: number; h: number };
+// A ring drawn around one part of a screenshot, `at` seconds after the card arrives.
+type Ring = { mark: string; color: string; at: number };
+// A slow zoom into the area around some marks, starting `at` seconds after the card arrives.
+type Zoom = { marks: string[]; z: number; at: number };
 
-const P = VOICE_IN.proof, PL = line("proof").seconds, P2 = proof2At, P2L = line("proof2").seconds;
-const SHOTS: Shot[] = [
+const P = VOICE_IN.proof, P2 = proof2At;
+const inProof = (phrase: string) => P + said("proof", phrase);
+const inProof2 = (phrase: string) => P2 + said("proof2", phrase);
+const END = DUR.proof / 30;
+
+const RUN = `github.com/${terminal.repo}/actions/runs`;
+const RUN_ZOOM = (at: number): Zoom => ({ marks: ["status", "tests", "countersign"], z: 1.75, at });
+const CARDS: { shot: ShotName | "terminal"; from: number; to: number; url: string; rings?: Ring[]; zoom?: Zoom; maxW?: number }[] = [
   // "This isn't a mock-up. Countersign runs today, as a real check on GitHub."
-  { src: "github/pr.png", start: 0, end: P + PL * 0.45, from: [0, 0, 2880], to: [120, 300, 2300], marks: [] },
+  { shot: "pr_head", from: 0.1, to: inProof("On this pull request") - 0.1, url: `github.com/${terminal.repo}/pull/${terminal.pr}`, maxW: 1720 },
   // "On this pull request, the normal tests pass, Countersign fails,"
   {
-    src: "github/run_failed.png", start: P + PL * 0.45, end: P + PL * 0.82, from: [48, 380, 2784], to: [600, 820, 1700],
-    marks: [
-      { box: [760, 1008, 522, 88], color: C.clear, at: 0.5 },
-      { box: [1393, 1008, 523, 88], color: C.stop, at: 1.1 },
-      { box: [752, 1572, 1500, 98], color: C.stop, at: 1.9 },
+    shot: "run_failed", from: inProof("On this pull request") - 0.1, to: inProof("and GitHub blocks") - 0.15, url: RUN, zoom: RUN_ZOOM(0.5),
+    rings: [
+      { mark: "tests", color: C.clear, at: said("proof", "the normal tests") - said("proof", "On this pull request") + 0.3 },
+      { mark: "countersign", color: C.stop, at: said("proof", "Countersign fails") - said("proof", "On this pull request") + 0.2 },
+      { mark: "status", color: C.stop, at: said("proof", "Countersign fails") - said("proof", "On this pull request") + 0.8 },
     ],
   },
   // "and GitHub blocks the merge."
+  { shot: "terminal", from: inProof("and GitHub blocks") - 0.15, to: P2 - 0.1, url: "" },
+  // "It posts the evidence right on the pull request,"
   {
-    src: "github/merge_blocked.jpg", start: P + PL * 0.82, end: P2, from: [150, 40, 1150], to: [250, 96, 820],
-    marks: [
-      { box: [288, 236, 744, 30], color: C.stop, at: 0.4 },
-      { box: [290, 346, 172, 36], color: C.stop, at: 1.0 },
-    ],
+    shot: "comment", from: P2 - 0.1, to: inProof2("and saves the audit") - 0.1, url: `github.com/${terminal.repo}/pull/${terminal.pr}`,
+    rings: [{ mark: "money", color: C.stop, at: 0.7 }, { mark: "apps", color: C.caution, at: 1.5 }],
   },
-  // "It posts the evidence right on the pull request."
+  // "and saves the audit record with the run."
+  { shot: "artifact", from: inProof2("and saves the audit") - 0.1, to: inProof2("When the fix") - 0.1, url: RUN, rings: [{ mark: "row", color: C.pen, at: 0.6 }] },
+  // "When the fix is pushed, every check turns green."
   {
-    src: "github/pr.png", start: P2, end: P2 + P2L * 0.47, from: [200, 1080, 1900], to: [300, 1290, 1180],
-    marks: [{ box: [364, 1408, 960, 132], color: C.stop, at: 0.7 }],
-  },
-  // "And when the fix is pushed,"
-  {
-    src: "github/run_green.png", start: P2 + P2L * 0.47, end: P2 + P2L * 0.78, from: [48, 380, 2784], to: [600, 820, 1700],
-    marks: [
-      { box: [760, 1008, 522, 88], color: C.clear, at: 0.3 },
-      { box: [1393, 1008, 523, 88], color: C.clear, at: 0.6 },
-    ],
-  },
-  // "every check turns green."
-  {
-    src: "github/merge_green.jpg", start: P2 + P2L * 0.78, end: DUR.proof / 30 + 1, from: [150, 40, 1150], to: [250, 100, 820],
-    marks: [
-      { box: [288, 166, 740, 48], color: C.clear, at: 0.3 },
-      { box: [290, 312, 172, 38], color: C.clear, at: 0.8 },
+    shot: "run_green", from: inProof2("When the fix") - 0.1, to: END + 1, url: RUN, zoom: RUN_ZOOM(0.3),
+    rings: [
+      { mark: "tests", color: C.clear, at: said("proof2", "every check") - said("proof2", "When the fix") + 0.1 },
+      { mark: "countersign", color: C.clear, at: said("proof2", "every check") - said("proof2", "When the fix") + 0.4 },
+      { mark: "status", color: C.clear, at: said("proof2", "every check") - said("proof2", "When the fix") + 0.8 },
     ],
   },
 ];
 
-const ShotView: React.FC<{ shot: Shot; first: boolean }> = ({ shot, first }) => {
+// One card arriving from below (soft blur, slight tilt), drifting gently, then lifting away.
+const CardMotion: React.FC<{ len: number; last: boolean; children: React.ReactNode }> = ({ len, last, children }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const len = (shot.end - shot.start) * fps;
-  const p = interpolate(frame, [0, len], [0, 1], { ...clamp, easing: easeOut });
-  const [x, y, w] = shot.from.map((v, i) => v + (shot.to[i] - v) * p);
-  const scale = VW / w;
-  const fadeIn = first ? 1 : interpolate(frame, [0, 10], [0, 1], clamp);
+  const enter = spring({ frame, fps, config: { damping: 20, stiffness: 110, mass: 0.9 } });
+  const leave = last ? 0 : interpolate(frame, [len - OUT, len], [0, 1], { ...clamp, easing: easeOut });
+  const drift = interpolate(frame, [0, len], [1, 1.025]);
   return (
-    <div style={{ position: "absolute", inset: 0, opacity: fadeIn }}>
-      <Img src={staticFile(shot.src)} style={{ position: "absolute", left: -x * scale, top: -y * scale, transformOrigin: "0 0", scale: String(scale), maxWidth: "none" }} />
-      {shot.marks.map((m, i) => (
-        <Highlight key={i} x={(m.box[0] - x) * scale} y={(m.box[1] - y) * scale} w={m.box[2] * scale} h={m.box[3] * scale} color={m.color} delay={Math.round(m.at * fps)} />
-      ))}
+    <AbsoluteFill style={{
+      opacity: Math.min(1, enter * 1.3) * (1 - leave),
+      translate: `0 ${interpolate(enter, [0, 1], [90, 0]) - 60 * leave}px`,
+      scale: String(interpolate(enter, [0, 1], [0.95, 1]) * drift * (1 - 0.04 * leave)),
+      filter: `blur(${interpolate(enter, [0, 1], [10, 0]) + 8 * leave}px)`,
+      transform: `perspective(1600px) rotateX(${interpolate(enter, [0, 1], [10, 0])}deg)`,
+    }}>
+      {children}
+    </AbsoluteFill>
+  );
+};
+
+const Shot: React.FC<{ shot: ShotName; url: string; rings: Ring[]; zoom?: Zoom; maxW?: number }> = ({ shot, url, rings, zoom, maxW = AREA.maxW }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const size = sizes[shot];
+  const s = Math.min(maxW / size.width, (AREA.maxH - 44) / size.height);
+  const w = size.width * s, h = size.height * s;
+  const marks = size.marks as Record<string, MarkBox | null>;
+  // Zoom: move the middle of the chosen marks to the middle of the card while scaling up (the screenshot is 3x, so it stays sharp).
+  let move = "none";
+  if (zoom) {
+    const ms = zoom.marks.map((k) => marks[k]).filter((m): m is MarkBox => !!m);
+    const cx = (Math.min(...ms.map((m) => m.x)) + Math.max(...ms.map((m) => m.x + m.w))) / 2;
+    const cy = (Math.min(...ms.map((m) => m.y)) + Math.max(...ms.map((m) => m.y + m.h))) / 2;
+    const p = interpolate(frame, [zoom.at * fps, (zoom.at + 1.4) * fps], [0, 1], { ...clamp, easing: Easing.bezier(0.65, 0, 0.35, 1) });
+    const z = 1 + (zoom.z - 1) * p;
+    move = `translate(${(0.5 - cx) * w * p}px, ${(0.5 - cy) * h * p}px) translate(${cx * w}px, ${cy * h}px) scale(${z}) translate(${-cx * w}px, ${-cy * h}px)`;
+  }
+  return (
+    <div style={{ position: "absolute", left: AREA.cx - w / 2, top: AREA.top + (AREA.maxH - h - 44) / 2, width: w, borderRadius: 18, overflow: "hidden", background: "#fff",
+      boxShadow: "0 50px 100px rgba(40,30,15,0.26), 0 12px 30px rgba(40,30,15,0.12), 0 0 0 1px rgba(26,26,26,0.08)" }}>
+      <div style={{ height: 44, display: "flex", alignItems: "center", gap: 12, padding: "0 18px", background: "#f6f4ef", borderBottom: "1px solid #e4dfd5", fontFamily: MONO, fontSize: 18, color: C.muted }}>
+        <svg width="20" height="20" viewBox="0 0 16 16"><path fill={C.ink} d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z" /></svg>
+        {url}
+      </div>
+      <div style={{ position: "relative", width: w, height: h, overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, transform: move, transformOrigin: "0 0" }}>
+        <Img src={staticFile(`github/${shot}.png`)} style={{ width: w, height: h, display: "block" }} />
+        {rings.map((r, i) => {
+          const m = marks[r.mark];
+          if (!m) return null;
+          return <Highlight key={i} x={m.x * w - 4} y={m.y * h - 4} w={m.w * w + 8} h={m.h * h + 8} color={r.color} delay={Math.round(r.at * fps)} />;
+        })}
+        </div>
+      </div>
     </div>
   );
 };
 
-const Label: React.FC<{ children: React.ReactNode; dur: number; accent: string }> = ({ children, dur, accent }) => (
-  <Callout duration={dur} accent={accent} top={640} width={430}>
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 30, fontWeight: 600 }}>{children}</div>
-  </Callout>
-);
+// The real state of the pull request, as GitHub's own command-line tool reports it.
+const Terminal: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const cmd = `gh pr view ${terminal.pr} --json mergeStateStatus`;
+  const typed = Math.floor(interpolate(frame, [0.25 * fps, 0.95 * fps], [0, cmd.length], clamp));
+  const out = frame >= 1.1 * fps;
+  const pop = spring({ frame: frame - Math.round(1.1 * fps), fps, config: { damping: 12, stiffness: 160 } });
+  const glow = 0.5 + 0.5 * Math.sin((frame / fps) * Math.PI * 2.2);
+  const w = 1240;
+  return (
+    <div style={{ position: "absolute", left: AREA.cx - w / 2, top: AREA.top + 70, width: w, borderRadius: 18, overflow: "hidden", background: C.night,
+      boxShadow: "0 50px 100px rgba(40,30,15,0.32), 0 0 0 1px rgba(0,0,0,0.3)", fontFamily: MONO }}>
+      <div style={{ height: 46, display: "flex", alignItems: "center", gap: 9, padding: "0 18px", background: "#22201d" }}>
+        {["#ff5f57", "#febc2e", "#28c840"].map((c) => <div key={c} style={{ width: 13, height: 13, borderRadius: 7, background: c }} />)}
+        <div style={{ margin: "0 auto", color: "#9a938a", fontSize: 18 }}>GitHub CLI · {terminal.repo}</div>
+        <div style={{ width: 66 }} />
+      </div>
+      <div style={{ padding: "34px 40px 44px", fontSize: 30, lineHeight: 1.6, color: "#eeeae3" }}>
+        <div><span style={{ color: "#7db4e0" }}>$ </span>{cmd.slice(0, typed)}<span style={{ opacity: !out && frame % 16 < 9 ? 1 : 0, color: C.spark }}>▍</span></div>
+        {out ? (
+          <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 18, opacity: Math.min(1, pop * 1.5) }}>
+            <span>{"{ \"mergeStateStatus\": "}</span>
+            <span style={{ display: "inline-block", color: "#ff8a80", fontWeight: 600, fontSize: 44, scale: String(interpolate(pop, [0, 1], [1.6, 1])),
+              textShadow: `0 0 ${10 + 14 * glow}px rgba(255,90,80,${0.35 + 0.3 * glow})` }}>"{terminal.mergeState}"</span>
+            <span>{"}"}</span>
+          </div>
+        ) : null}
+        <div style={{ marginTop: 26, color: "#9a938a", fontSize: 24, opacity: interpolate(frame, [1.6 * fps, 2.1 * fps], [0, 1], clamp) }}>
+          # main only accepts a change when both pass: {terminal.required.join(" and ")}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const Proof: React.FC = () => {
   const frame = useCurrentFrame();
@@ -89,52 +158,37 @@ export const Proof: React.FC = () => {
   const pulse = 0.5 + 0.5 * Math.sin((frame / fps) * Math.PI * 2);
   const f = (s: number) => Math.round(s * fps);
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ fontFamily: SANS }}>
       <Paper />
-      <div style={{ position: "absolute", left: 300, top: 54, opacity: head, translate: `0 ${interpolate(head, [0, 1], [-20, 0])}px`, fontFamily: SANS }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: MONO, fontSize: 22, letterSpacing: "0.12em", color: C.clear, fontWeight: 500 }}>
+      <div style={{ position: "absolute", left: 0, right: 0, top: 52, textAlign: "center", opacity: head, translate: `0 ${interpolate(head, [0, 1], [-20, 0])}px` }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 12, fontFamily: MONO, fontSize: 22, letterSpacing: "0.14em", color: C.clear, fontWeight: 500 }}>
           <span style={{ width: 14, height: 14, borderRadius: 7, background: C.clear, boxShadow: `0 0 0 ${4 + pulse * 6}px rgba(23,115,74,${0.25 - pulse * 0.2})` }} />
           LIVE ON GITHUB
         </div>
-        <div style={{ fontSize: 58, fontWeight: 600, color: C.ink, letterSpacing: "-0.02em", marginTop: 8 }}>This runs for real, on a real pull request</div>
+        <div style={{ fontSize: 56, fontWeight: 700, color: C.ink, letterSpacing: "-0.025em", marginTop: 6 }}>This runs for real, on a real pull request</div>
       </div>
-      <BrowserFrame x={WIN.x} y={WIN.y} width={WIN.width} url="github.com/bhanujangid067/countersign-demo">
-        {SHOTS.map((s, i) => (
-          <Sequence key={i} name={s.src} from={f(s.start)} durationInFrames={f(s.end - s.start) + 10} layout="none">
-            <ShotView shot={s} first={i === 0} />
+      {CARDS.map((c, i) => {
+        const len = f(c.to - c.from) + OUT;
+        return (
+          <Sequence key={i} name={c.shot} from={f(c.from)} durationInFrames={len} layout="none">
+            <CardMotion len={len} last={i === CARDS.length - 1}>
+              {c.shot === "terminal" ? <Terminal /> : <Shot shot={c.shot} url={c.url} rings={c.rings ?? []} zoom={c.zoom} maxW={c.maxW} />}
+            </CardMotion>
           </Sequence>
-        ))}
-      </BrowserFrame>
-
-      <Sequence from={f(SHOTS[1].start + 0.6)} durationInFrames={f(SHOTS[2].start - SHOTS[1].start - 0.6)}>
-        <Label dur={f(SHOTS[2].start - SHOTS[1].start - 0.6)} accent={C.stop}>
-          <span style={{ display: "flex", gap: 12, alignItems: "center" }}><Tick color={C.clear} />Normal tests pass</span>
-          <span style={{ display: "flex", gap: 12, alignItems: "center", color: C.stop }}><Cross color={C.stop} />Countersign fails</span>
-        </Label>
-      </Sequence>
-      <Sequence from={f(SHOTS[2].start + 0.5)} durationInFrames={f(SHOTS[3].start - SHOTS[2].start - 0.5)}>
-        <Label dur={f(SHOTS[3].start - SHOTS[2].start - 0.5)} accent={C.stop}>
-          <span style={{ color: C.stop, fontSize: 36 }}>GitHub blocks the merge</span>
-        </Label>
-      </Sequence>
-      <Sequence from={f(SHOTS[4].start + 0.4)}>
-        <Label dur={f(DUR.proof / 30 - SHOTS[4].start + 1)} accent={C.clear}>
-          <span style={{ display: "flex", gap: 12, alignItems: "center", color: C.clear, fontSize: 36 }}><Tick color={C.clear} size={36} />After the fix: all green</span>
-        </Label>
-      </Sequence>
-
-      {SHOTS.slice(1).map((s, i) => (
-        <Sequence key={i} from={f(s.start)}>
-          <Audio src={staticFile("sfx/shutter-modern.wav")} volume={0.12} />
+        );
+      })}
+      {CARDS.slice(1).map((c, i) => (
+        <Sequence key={i} from={f(c.from)} layout="none">
+          <Audio src={staticFile("sfx/whoosh.wav")} volume={0.08} />
         </Sequence>
       ))}
       <Sequence from={f(P)}>
         <Audio src={staticFile("voice/proof.wav")} />
-        <Captions text={line("proof").text} seconds={PL} />
+        <Captions text={line("proof").text} seconds={line("proof").seconds} />
       </Sequence>
       <Sequence from={f(P2)}>
         <Audio src={staticFile("voice/proof2.wav")} />
-        <Captions text={line("proof2").text} seconds={P2L} />
+        <Captions text={line("proof2").text} seconds={line("proof2").seconds} />
       </Sequence>
     </AbsoluteFill>
   );

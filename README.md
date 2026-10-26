@@ -62,12 +62,18 @@ Every number on the site comes from a real run of the checks: `scripts/demo_loca
 
 To remake it (for example after changing the script in `video/script.json`):
 
-1. `video/.tts/bin/python video/make_voice.py`: the voiceover (free Kokoro AI voice, offline)
-2. `node video/record.mjs`: records the website in step with the voice
-3. `node video/capture_github.mjs <failed run id> <green run id>`: GitHub screenshots
+1. `video/.tts/bin/python video/make_voice.py`, then copy `video/out/voice/*` into `video/remotion/public/voice/`: the voiceover (free Kokoro AI voice, offline)
+2. `node video/record.mjs`: records the website in sharp 4K, in step with the voice. It doesn't film the screen in real time: it freezes the site's clock and moves it forward one frame at a time, taking a screenshot of each frame.
+3. `node video/capture_github.mjs <failed run id> <green run id>`: sharp, cropped GitHub screenshots, and the real `gh` output shown in the terminal card
 4. In `video/remotion/`: `npx remotion render CountersignDemo ../out/countersign-demo.mp4`
 
-`npx remotion studio` in `video/remotion/` opens an editor to preview and tweak it.
+`npx remotion studio` in `video/remotion/` opens an editor to preview and tweak it. `node stills.mjs <folder> <frame> ...` renders a few single frames to check.
+
+---
+
+## The logo
+
+`brand/` has the logo in every version (open `brand/index.html` to see them all), with PNGs for slides in `brand/png/`. The files are traced from the original image in `brand/source/`: `brand/make_logo.py` makes the SVGs (needs `brew install potrace`), then `node video/export_logo_png.mjs` makes the PNGs.
 
 ---
 
