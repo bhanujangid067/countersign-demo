@@ -2,18 +2,69 @@
   "voice": "af_heart",
   "speed": 1.07,
   "scenes": [
-    {"id": "title", "text": "This is Countersign. A second signature, before any code change that moves money goes live."},
-    {"id": "problem", "text": "Here's the problem. A code change can pass every single test, and still send the wrong amount of money. A nine hundred rupee refund goes out as ninety thousand."},
-    {"id": "overview", "text": "Countersign checks every pull request that touches money. This is the payments lead's view, at a sample company. A developer, Rohan, has a change waiting on the refund API."},
-    {"id": "change", "text": "Rohan switches the amount field from paise to rupees. He updates the mobile app too, and every normal test passes. Most teams would merge this."},
-    {"id": "check1", "text": "Countersign's first question: who will break? It reads the company's own gateway logs. Two apps still send paise, the merchant dashboard and the partner shopping app. Even the standard API checker said this change was fine."},
-    {"id": "check2", "text": "Second question: is the money right? It replays last week's four thousand, one hundred and eighty refunds through the new code. Eight hundred and ninety of them come out wrong."},
-    {"id": "stopped", "text": "So Countersign stops the change. The merge button stays locked, until the code is fixed, or the payments lead signs off."},
-    {"id": "fix", "text": "Path one: Rohan fixes it. The API now takes an explicit unit, with paise as the default. Countersign checks again. Every app works, every refund is right, and it merges."},
-    {"id": "approve", "text": "Path two: Ananya, the payments lead, reviews the evidence, and countersigns that exact commit. Her signature goes on record, and now the change can merge."},
-    {"id": "audit", "text": "Every decision becomes a signed audit record. What was checked, what went wrong, and who approved it."},
-    {"id": "proof", "text": "And this isn't a mock-up. Countersign runs today, as a real check on GitHub. On this pull request, the normal tests pass, Countersign fails, and GitHub blocks the merge."},
-    {"id": "proof2", "text": "It posts the evidence right on the pull request. And when the fix is pushed, every check turns green."},
-    {"id": "close", "text": "Countersign. Proof, not an opinion."}
+    {
+      "id": "title",
+      "text": "This is Countersign. A second signature, before any code change that moves money goes live."
+    },
+    {
+      "id": "problem",
+      "text": "Here's the problem. A code change can pass every single test, and still send the wrong amount of money. A nine hundred rupee refund goes out as ninety thousand."
+    },
+    {
+      "id": "overview",
+      "text": "Countersign checks every pull request that touches money. This is the payments lead's view, at a sample company. A developer, Rohan, has a change waiting on the refund API."
+    },
+    {
+      "id": "change",
+      "text": "Rohan switches the amount field from paise to rupees. He updates the mobile app too, and every normal test passes. Most teams would merge this."
+    },
+    {
+      "id": "check1",
+      "text": "Countersign's first question: who will break? It reads the company's own gateway logs. Two apps still send paise, the merchant dashboard and the partner shopping app. Even the standard API checker said this change was fine."
+    },
+    {
+      "id": "check2",
+      "text": "Second question: is the money right? It replays last week's four thousand, one hundred and eighty refunds through the new code. Eight hundred and ninety of them come out wrong."
+    },
+    {
+      "id": "stopped",
+      "text": "So Countersign stops the change, and the merge button stays locked. There are two ways forward."
+    },
+    {
+      "id": "fix",
+      "text": "Path one: Rohan fixes it. The API now takes an explicit unit, with paise as the default. Countersign checks again. Every app works, every refund is right, and the merge unlocks."
+    },
+    {
+      "id": "approve",
+      "text": "Path two: the team wants to go ahead anyway. Ananya, the payments lead, reviews the evidence, and countersigns that exact commit. Her signature goes on record, and only then does the change merge."
+    },
+    {
+      "id": "audit",
+      "text": "Either way, every decision becomes a signed audit record. What was checked, what went wrong, and who approved it."
+    },
+    {
+      "id": "gh1",
+      "text": "Now the real thing. Countersign already runs as a check on GitHub. Here is Rohan's pull request, and the line that changes paise to rupees."
+    },
+    {
+      "id": "gh2",
+      "text": "GitHub runs two checks on it. The normal tests pass. Then Countersign runs, and fails."
+    },
+    {
+      "id": "gh3",
+      "text": "It posts the evidence right on the pull request: a nine hundred rupee refund would go out as ninety thousand. And GitHub blocks the merge."
+    },
+    {
+      "id": "gh4",
+      "text": "Now Rohan pushes the fix. GitHub runs both checks again, on the new commit. This time, both pass."
+    },
+    {
+      "id": "gh5",
+      "text": "Countersign updates the same comment to all clear, and GitHub lets the change merge."
+    },
+    {
+      "id": "close",
+      "text": "Countersign. Proof, not an opinion."
+    }
   ]
 }

@@ -2,13 +2,18 @@
 //
 //   node video/record.mjs        (run make_voice.py first)
 //
+// The site is not screen-recorded in real time. Its clock is frozen and moved forward one frame
+// at a time (timers, animations and scrolling all follow it), and every frame is a sharp 4K
+// screenshot. So the video is crisp, smooth, and every scene starts exactly when we say.
+// Frames are drawn in 4K and saved at 2560 x 1440: sharp even when the video zooms in, and light enough to render.
+//
 // Writes video/remotion/public/site.mp4 and video/remotion/public/site-marks.json
-// (when each website scene starts in the recording). Remotion adds the titles, captions and motion.
+// (when each website scene starts, when key moments happen, and where things are on screen).
 import { chromium } from "playwright";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +23,10 @@ const PUBLIC = path.join(HERE, "remotion", "public");
 const VOICE = JSON.parse(fs.readFileSync(path.join(OUT, "voice", "durations.json"), "utf8"));
 const LINES = Object.fromEntries(VOICE.scenes.map((s) => [s.id, s]));
 const PAD = 0.9; // seconds each scene runs past the end of its voice line (Remotion uses the same value)
+const FPS = 30;
+// The site is laid out at 1280 x 720 and drawn 3x, so each frame is 3840 x 2160 (4K).
+const VIEW = { width: 1280, height: 720 };
+const DPR = 3;
 
 // ---- a tiny static server for the site ----
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
@@ -30,61 +39,142 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const BASE = `http://127.0.0.1:${server.address().port}`;
 
-// Show the site 45% larger so it fills the video frame sharply, hide the site's pop-up messages
-// (the voiceover says it) and the presenter buttons (viewers don't need them), and show a ripple where we click.
-const ZOOM = 1.45;
-const OVERLAY = `
+// Runs in the page before the site's own code: a clock we control, smooth scrolling that follows it,
+// a ripple where we click, and no presenter buttons or pop-up messages (the voiceover says it).
+const SETUP = `
 (() => {
-  const css = 'html{zoom:${ZOOM}}.tray>section:first-child{display:none!important}.toast{display:none!important}.vo-ripple{position:fixed;width:46px;height:46px;border-radius:50%;border:3px solid #1f3d8c;pointer-events:none;z-index:99997;transform:translate(-50%,-50%) scale(.4);animation:vo-ripple .6s ease-out forwards}@keyframes vo-ripple{to{transform:translate(-50%,-50%) scale(1.8);opacity:0}}';
-  const add = () => { const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s); };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
-  const mark = () => { if (document.getElementById('vo-mark')) return; const m = document.createElement('div'); m.id = 'vo-mark';
-    m.style.cssText = 'position:fixed;right:0;bottom:0;width:6px;height:6px;z-index:99999;background:#000'; document.body.appendChild(m); };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mark); else mark();
-  window.__ripple = (x, y) => { const r = document.createElement('div'); r.className = 'vo-ripple'; r.style.left = (x / ${ZOOM}) + 'px'; r.style.top = (y / ${ZOOM}) + 'px'; document.body.appendChild(r); setTimeout(() => r.remove(), 700); };
+  const realTimeout = window.setTimeout.bind(window);
+  let now = 0, seq = 1;
+  const timers = new Map();
+  const add = (fn, ms, args, every) => { const id = seq++; timers.set(id, { at: now + Math.max(0, +ms || 0), fn, args, every }); return id; };
+  window.setTimeout = (fn, ms, ...args) => add(fn, ms, args, 0);
+  window.setInterval = (fn, ms, ...args) => add(fn, ms, args, Math.max(1, +ms || 0));
+  window.clearTimeout = window.clearInterval = (id) => { timers.delete(id); };
+  window.requestAnimationFrame = (fn) => add(() => fn(now), 1000 / 60, [], 0);
+  window.cancelAnimationFrame = (id) => { timers.delete(id); };
+  const start = Date.now();
+  Date.now = () => start + now;
+  performance.now = () => now;
+
+  // Move the clock forward: run every timer that falls due (in order, letting promises settle
+  // after each), then put every CSS animation and transition at the matching point.
+  window.__advance = async (ms) => {
+    const from = now, end = now + ms;
+    for (;;) {
+      let id = 0, next = null;
+      for (const [k, t] of timers) if (t.at <= end && (!next || t.at < next.at)) { id = k; next = t; }
+      if (!next) break;
+      now = next.at;
+      if (next.every) next.at += next.every; else timers.delete(id);
+      try { next.fn(...next.args); } catch (e) { console.error(e); }
+      await new Promise((r) => realTimeout(r, 0));
+    }
+    now = end;
+    for (const a of document.getAnimations()) {
+      if (a.__from === undefined) { a.__from = from; a.pause(); }
+      a.currentTime = now - a.__from;
+    }
+  };
+
+  // Smooth scrolling, driven by the same clock (an ease in and out over 0.9 s).
+  const jump = window.scrollTo.bind(window);
+  let scrolling = 0;
+  const glide = (top) => {
+    const from = window.scrollY, max = document.documentElement.scrollHeight - innerHeight;
+    const to = Math.max(0, Math.min(top, max)), began = now, dur = 900;
+    clearTimeout(scrolling);
+    const step = () => {
+      const p = Math.min(1, (now - began) / dur);
+      const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      jump(0, from + (to - from) * e);
+      if (p < 1) scrolling = setTimeout(step, 1000 / 60);
+    };
+    step();
+  };
+  window.scrollTo = (a, b) => (a && typeof a === "object" && a.behavior === "smooth") ? glide(a.top ?? scrollY) : jump(a, b);
+  const into = Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView = function (opt) {
+    if (!opt || typeof opt !== "object" || opt.behavior !== "smooth") return into.call(this, opt);
+    const r = this.getBoundingClientRect(), margin = parseFloat(getComputedStyle(this).scrollMarginTop) || 0;
+    glide(opt.block === "center" ? scrollY + r.top - (innerHeight - r.height) / 2 : scrollY + r.top - margin);
+  };
+
+  const css = '.tray>section:first-child{display:none!important}.toast{display:none!important}' +
+    '.vo-ripple{position:fixed;width:46px;height:46px;border-radius:50%;border:3px solid #226192;pointer-events:none;z-index:99997;transform:translate(-50%,-50%) scale(.4);animation:vo-ripple .6s ease-out forwards}' +
+    '@keyframes vo-ripple{to{transform:translate(-50%,-50%) scale(1.8);opacity:0}}';
+  const addCss = () => { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", addCss); else addCss();
+  window.__ripple = (x, y) => { const r = document.createElement("div"); r.className = "vo-ripple"; r.style.left = x + "px"; r.style.top = y + "px"; document.body.appendChild(r); setTimeout(() => r.remove(), 700); };
 })();`;
 
 const browser = await chromium.launch({ channel: "chrome" }); // the Google Chrome already installed on this Mac
-const context = await browser.newContext({
-  viewport: { width: 1920, height: 1080 },
-  colorScheme: "light",
-  recordVideo: { dir: path.join(OUT, "tmp"), size: { width: 1920, height: 1080 } },
-});
-await context.addInitScript(OVERLAY);
+const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: DPR, colorScheme: "light" });
+await context.addInitScript(SETUP);
 const page = await context.newPage();
-const t0 = Date.now();
-const marks = {};
-const pill = (text) => page.waitForFunction((t) => document.getElementById("statusPill")?.innerText === t, text, { timeout: 90000 });
-const key = (k) => page.keyboard.press(k);
-const wait = (ms) => page.waitForTimeout(ms);
-async function click(selector) {
-  const box = await page.locator(selector).boundingBox();
-  await page.evaluate(([x, y]) => window.__ripple(x, y), [box.x + box.width / 2, box.y + box.height / 2]);
-  await page.locator(selector).click({ force: true }); // the locked Merge button is aria-disabled but still clickable (it shakes)
+page.on("pageerror", (e) => console.log("page error:", e.message));
+
+// Frames go straight into ffmpeg as JPEGs and come out as one H.264 video.
+fs.mkdirSync(PUBLIC, { recursive: true });
+const ffmpeg = spawn("ffmpeg", ["-v", "error", "-y", "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",
+  "-vf", "scale=2560:1440:flags=lanczos", "-c:v", "libx264", "-preset", "slow", "-crf", "14", "-pix_fmt", "yuv420p", "-g", "15", "-r", String(FPS), "-an",
+  path.join(PUBLIC, "site.mp4")], { stdio: ["pipe", "inherit", "inherit"] });
+const ffmpegDone = new Promise((r) => ffmpeg.on("close", r));
+
+let frame = 0;
+const now = () => frame / FPS; // seconds of video so far
+async function step() {
+  await page.evaluate((ms) => window.__advance(ms), 1000 / FPS);
+  const jpeg = await page.screenshot({ type: "jpeg", quality: 93 });
+  if (!ffmpeg.stdin.write(jpeg)) await new Promise((r) => ffmpeg.stdin.once("drain", r));
+  frame++;
+  if (frame % 300 === 0) console.log(`  ${frame} frames (${now().toFixed(0)}s)`);
 }
-async function releaseWhenReady(name) {
-  await page.waitForFunction((n) => window.__waitingFor === n, name, { timeout: 60000 });
+const wait = async (ms) => { const end = frame + Math.round((ms / 1000) * FPS); while (frame < end) await step(); };
+async function until(fn, arg, label) {
+  const limit = frame + 90 * FPS;
+  while (!(await page.evaluate(fn, arg))) {
+    if (frame > limit) throw new Error("waited too long for " + label);
+    await step();
+  }
+}
+const pill = (text) => until((t) => document.getElementById("statusPill")?.innerText === t, text, text);
+const key = (k) => page.keyboard.press(k);
+async function release(name) {
+  await until((n) => window.__waitingFor === n, name, name);
   await page.evaluate((n) => window.__release(n), name);
 }
-// One scene: note when it starts, do its actions, and hold until its voice line (plus PAD) has finished.
-// Each scene colours the corner square, so its exact start can be found in the video afterwards.
-const SCENE_COLORS = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff", "#ffffff", "#ff8000", "#8000ff"];
-const ORDER = ["overview", "change", "check1", "check2", "stopped", "fix", "approve", "audit", "end"];
-const flag = (id) => page.evaluate((c) => { const m = document.getElementById("vo-mark"); if (m) m.style.background = c; }, SCENE_COLORS[ORDER.indexOf(id)]);
-async function scene(id, actions) {
-  const line = LINES[id], start = Date.now();
-  await flag(id);
-  marks[id] = (start - t0) / 1000;
-  console.log(`scene ${id} at ${marks[id].toFixed(1)}s (voice ${line.seconds}s)`);
-  if (actions) await actions();
-  const left = (line.seconds + PAD) * 1000 - (Date.now() - start);
-  if (left > 0) await wait(left);
-  else console.log(`  ${id} ran ${(-left / 1000).toFixed(1)}s longer than its line`);
+async function click(selector) {
+  const box = await page.locator(selector).boundingBox();
+  const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
+  await page.evaluate(([x, y]) => window.__ripple(x, y), [x, y]);
+  await page.mouse.click(x, y); // the locked Merge button still takes clicks (it shakes)
 }
+
+const marks = {}; // scene starts, in seconds
+const moments = {}; // key moments inside scenes, in seconds
+const boxes = {}; // where things are on screen at a moment (fractions of the frame)
+const moment = (name) => { moments[name] = now(); };
+async function boxOf(name, selector) {
+  boxes[name] = await page.evaluate(([sel, w, h]) => {
+    const r = document.querySelector(sel)?.getBoundingClientRect();
+    return r && { x: r.left / w, y: r.top / h, w: r.width / w, h: r.height / h };
+  }, [selector, VIEW.width, VIEW.height]);
+}
+// One scene: note when it starts, do its actions, and hold until its voice line (plus PAD) has finished.
+async function scene(id, actions, seconds = LINES[id] ? LINES[id].seconds + PAD : 0) {
+  const start = now();
+  marks[id] = start;
+  console.log(`scene ${id} at ${start.toFixed(1)}s`);
+  if (actions) await actions(start);
+  const left = seconds - (now() - start);
+  if (left > 0) await wait(left * 1000);
+  else if (seconds) console.log(`  ${id} ran ${(-left).toFixed(1)}s longer than its line`);
+}
+const at = async (start, s) => { if (now() < start + s) await wait((start + s - now()) * 1000); };
 
 await page.goto(`${BASE}/index.html#/overview?steps`);
 await page.evaluate(() => document.fonts.ready);
-await wait(1500);
+await wait(1000);
 
 await scene("overview");
 await scene("change", async () => {
@@ -94,72 +184,86 @@ await scene("change", async () => {
 });
 await scene("check1", async () => {
   await key("r");
-  await releaseWhenReady("callers");
+  await release("callers");
+  await wait(2500);
+  await boxOf("callers", "#chkCallers");
 });
-await scene("check2", async () => { await releaseWhenReady("money"); });
+await scene("check2", async () => {
+  await release("money");
+  await wait(2500);
+  await boxOf("money", "#chkMoney");
+});
 await scene("stopped", async () => {
-  await releaseWhenReady("signoff");
+  await release("signoff");
   await pill("Stopped");
-  await wait(2400);
+  moment("stopped");
+  await wait(1600);
+  await boxOf("verdictStopped", "#verdict");
+  await boxOf("mergeBoxStopped", "#mergeBox");
+  await boxOf("mergeLocked", "#bMerge");
+  moment("mergeClick");
   await click("#bMerge");
-});
-await scene("fix", async () => {
+}, LINES.stopped.seconds + 0.4); // the "two ways forward" card follows straight on
+await scene("fix", async (start) => {
   await page.evaluate(() => { window.__auto = setInterval(() => window.__waitingFor && window.__release(window.__waitingFor), 60); });
+  await at(start, 1.4);
   await key("f");
+  await page.evaluate(() => window.__setSpeed(1.5)); // so "all clear" lands on the right words
   await pill("All clear");
-  await wait(1500);
-  await click("#bMerge");
-  await pill("Merged");
-  await wait(1800);
-});
-await scene("approve", async () => {
-  await page.evaluate(() => window.__setSpeed(3));
+  await page.evaluate(() => window.__setSpeed(1));
+  moment("allClear");
+  await wait(1200);
+  await boxOf("verdictClear", "#verdict");
+  await boxOf("mergeBoxClear", "#mergeBox");
+  await boxOf("mergeOpen", "#bMerge");
+  await page.evaluate(() => document.getElementById("bMerge")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  await wait(1000);
+  await boxOf("mergeOpenCentered", "#bMerge");
+  moment("mergeUnlocked");
+}, LINES.fix.seconds + 0.3);
+// No voice: back to the stopped change, hidden behind the "path two" card in the video.
+await scene("rewind", async () => {
+  await page.evaluate(() => window.__setSpeed(40));
   await key("0");
-  await wait(300);
+  await wait(100);
   await key("r");
   await pill("Stopped");
-  await page.evaluate(() => window.__setSpeed(1));
-  await wait(500);
+  await page.evaluate(() => { window.__setSpeed(1); window.scrollTo(0, 150); });
+}, 0.5);
+await scene("approve", async (start) => {
+  await at(start, 2.6);
   await key("a");
+  moment("signing");
   await pill("Countersigned");
-  await wait(3600);
+  moment("countersigned");
+  await wait(1200);
+  await boxOf("signoff", "#chkSignoff");
+  await boxOf("verdictSigned", "#verdict");
+  await boxOf("mergeBoxSigned", "#mergeBox");
+  await at(start, 9.0);
+  await boxOf("mergeSigned", "#bMerge");
+  moment("mergeClick2");
   await click("#bMerge");
   await pill("Merged");
-  await wait(1800);
+  moment("merged");
+  await wait(300);
+  await boxOf("verdictMerged", "#verdict");
 });
 await scene("audit", async () => {
   await page.evaluate(() => { location.hash = "#/audit"; });
   await wait(1400);
   await page.evaluate(() => {
     const el = document.querySelectorAll(".doc-s")[3];
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 300, behavior: "smooth" });
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 220, behavior: "smooth" });
   });
 });
-marks.end = (Date.now() - t0) / 1000;
-await flag("end");
-await wait(600);
+marks.end = now();
+await wait(500);
 
-await context.close();
-const raw = await page.video().path();
+ffmpeg.stdin.end();
+await ffmpegDone;
 await browser.close();
 server.close();
-fs.mkdirSync(PUBLIC, { recursive: true });
-// H.264 with frequent keyframes, so Remotion can jump to any scene quickly.
-execFileSync("ffmpeg", ["-v", "error", "-y", "-i", raw, "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p",
-  "-r", "30", "-g", "15", "-an", path.join(PUBLIC, "site.mp4")]);
-// Find where each scene really starts in the video, from the corner square's colour.
-const raw30 = execFileSync("ffmpeg", ["-v", "error", "-i", path.join(PUBLIC, "site.mp4"), "-vf", "crop=4:4:1915:1075,scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
-const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-const PALETTE = SCENE_COLORS.map(rgb);
-const videoMarks = {};
-let want = 0;
-for (let f = 0; f * 3 < raw30.length && want < ORDER.length; f++) {
-  const px = [raw30[f * 3], raw30[f * 3 + 1], raw30[f * 3 + 2]];
-  const near = PALETTE.map((c) => c.reduce((d, v, i) => d + (v - px[i]) ** 2, 0));
-  const best = near.indexOf(Math.min(...near));
-  if (best === want && near[best] < 6000) { videoMarks[ORDER[want]] = f / 30; want++; }
-}
-if (want < ORDER.length) throw new Error("could not find every scene in the video: found " + Object.keys(videoMarks).join(", "));
-console.log("scene starts in the video:", videoMarks);
-fs.writeFileSync(path.join(PUBLIC, "site-marks.json"), JSON.stringify({ pad: PAD, marks: videoMarks, clock: marks }, null, 2));
+fs.writeFileSync(path.join(PUBLIC, "site-marks.json"), JSON.stringify({ pad: PAD, marks, moments, boxes }, null, 2));
 console.log("saved remotion/public/site.mp4 and site-marks.json");
+console.log({ marks, moments });

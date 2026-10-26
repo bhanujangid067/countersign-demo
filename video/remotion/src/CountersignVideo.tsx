@@ -5,7 +5,7 @@ import { AbsoluteFill, continueRender, delayRender, Easing, Sequence, staticFile
 import { fontsLoaded } from "./fonts";
 import { Close } from "./scenes/Close";
 import { Problem } from "./scenes/Problem";
-import { Proof } from "./scenes/Proof";
+import { GitHub } from "./scenes/GitHub";
 import { Site } from "./scenes/Site";
 import { Title } from "./scenes/Title";
 import { C } from "./theme";
@@ -37,7 +37,7 @@ export const CountersignVideo: React.FC = () => {
   // Frames where each chapter transition starts (for the whoosh).
   const cuts: number[] = [];
   let t = 0;
-  for (const d of [DUR.title, DUR.problem, DUR.site, DUR.proof]) {
+  for (const d of [DUR.title, DUR.problem, DUR.site, DUR.github]) {
     t += d - TRANSITION;
     cuts.push(t);
   }
@@ -57,8 +57,8 @@ export const CountersignVideo: React.FC = () => {
           <Site />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition presentation={soft} timing={timing} />
-        <TransitionSeries.Sequence name="GitHub proof" durationInFrames={DUR.proof}>
-          <Proof />
+        <TransitionSeries.Sequence name="GitHub" durationInFrames={DUR.github}>
+          <GitHub />
         </TransitionSeries.Sequence>
         <TransitionSeries.Transition presentation={soft} timing={timing} />
         <TransitionSeries.Sequence name="Close" durationInFrames={DUR.close}>

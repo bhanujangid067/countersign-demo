@@ -58,16 +58,22 @@ Every number on the site comes from a real run of the checks: `scripts/demo_loca
 
 ## The demo video
 
-`video/` makes a 2-minute narrated video of the whole story, plus real GitHub screenshots as proof. One-time setup (Mac, needs internet): `brew install espeak-ng ffmpeg`, then in `video/`: `npm install`, `python3.11 -m venv .tts && .tts/bin/pip install kokoro-onnx soundfile`, download the Kokoro model files into `video/models/`, and run `npm install` in `video/remotion/`.
+`video/` makes a 2½-minute narrated video of the whole story: the website, then the same change on the real GitHub pull request. One-time setup (Mac, needs internet): `brew install espeak-ng ffmpeg`, then in `video/`: `npm install`, `python3.11 -m venv .tts && .tts/bin/pip install kokoro-onnx soundfile`, download the Kokoro model files into `video/models/`, and run `npm install` in `video/remotion/`.
 
 To remake it (for example after changing the script in `video/script.json`):
 
-1. `video/.tts/bin/python video/make_voice.py`: the voiceover (free Kokoro AI voice, offline)
-2. `node video/record.mjs`: records the website in step with the voice
-3. `node video/capture_github.mjs <failed run id> <green run id>`: GitHub screenshots
+1. `video/.tts/bin/python video/make_voice.py`, then copy `video/out/voice/*` into `video/remotion/public/voice/`: the voiceover (free Kokoro AI voice, offline)
+2. `node video/record.mjs`: records the website in sharp 4K, in step with the voice. It doesn't film the screen in real time: it freezes the site's clock and moves it forward one frame at a time, taking a screenshot of each frame.
+3. `node video/capture_github_live.mjs <failed run id>`: runs the live GitHub demo for real and photographs it as it happens. It re-runs the checks on PR #2, pushes the fix, watches the checks go green, then puts the PR back to the bad change (stopped again). It also saves GitHub's real merge state (BLOCKED, then CLEAN) for the terminal card.
 4. In `video/remotion/`: `npx remotion render CountersignDemo ../out/countersign-demo.mp4`
 
-`npx remotion studio` in `video/remotion/` opens an editor to preview and tweak it.
+`npx remotion studio` in `video/remotion/` opens an editor to preview and tweak it. `node stills.mjs <folder> <frame> ...` renders a few single frames to check.
+
+---
+
+## The logo
+
+`brand/` has the logo in every version (open `brand/index.html` to see them all), with PNGs for slides in `brand/png/`. The files are traced from the original image in `brand/source/`: `brand/make_logo.py` makes the SVGs (needs `brew install potrace`), then `node video/export_logo_png.mjs` makes the PNGs.
 
 ---
 
