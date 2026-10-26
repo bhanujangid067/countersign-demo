@@ -5,6 +5,7 @@
 // The site is not screen-recorded in real time. Its clock is frozen and moved forward one frame
 // at a time (timers, animations and scrolling all follow it), and every frame is a sharp 4K
 // screenshot. So the video is crisp, smooth, and every scene starts exactly when we say.
+// Frames are drawn in 4K and saved at 2560 x 1440: sharp even when the video zooms in, and light enough to render.
 //
 // Writes video/remotion/public/site.mp4 and video/remotion/public/site-marks.json
 // (when each website scene starts, when key moments happen, and where things are on screen).
@@ -115,7 +116,7 @@ page.on("pageerror", (e) => console.log("page error:", e.message));
 // Frames go straight into ffmpeg as JPEGs and come out as one H.264 video.
 fs.mkdirSync(PUBLIC, { recursive: true });
 const ffmpeg = spawn("ffmpeg", ["-v", "error", "-y", "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",
-  "-c:v", "libx264", "-preset", "slow", "-crf", "14", "-pix_fmt", "yuv420p", "-g", "15", "-r", String(FPS), "-an",
+  "-vf", "scale=2560:1440:flags=lanczos", "-c:v", "libx264", "-preset", "slow", "-crf", "14", "-pix_fmt", "yuv420p", "-g", "15", "-r", String(FPS), "-an",
   path.join(PUBLIC, "site.mp4")], { stdio: ["pipe", "inherit", "inherit"] });
 const ffmpegDone = new Promise((r) => ffmpeg.on("close", r));
 
@@ -198,12 +199,11 @@ await scene("stopped", async () => {
   moment("stopped");
   await wait(1600);
   await boxOf("verdictStopped", "#verdict");
+  await boxOf("mergeBoxStopped", "#mergeBox");
   await boxOf("mergeLocked", "#bMerge");
   moment("mergeClick");
   await click("#bMerge");
-});
-// No voice: the video shows the "two ways forward" card over this.
-await scene("paths", null, 2.2);
+}, LINES.stopped.seconds + 0.4); // the "two ways forward" card follows straight on
 await scene("fix", async (start) => {
   await page.evaluate(() => { window.__auto = setInterval(() => window.__waitingFor && window.__release(window.__waitingFor), 60); });
   await at(start, 1.4);
@@ -214,12 +214,13 @@ await scene("fix", async (start) => {
   moment("allClear");
   await wait(1200);
   await boxOf("verdictClear", "#verdict");
+  await boxOf("mergeBoxClear", "#mergeBox");
   await boxOf("mergeOpen", "#bMerge");
   await page.evaluate(() => document.getElementById("bMerge")?.scrollIntoView({ behavior: "smooth", block: "center" }));
   await wait(1000);
   await boxOf("mergeOpenCentered", "#bMerge");
   moment("mergeUnlocked");
-});
+}, LINES.fix.seconds + 0.3);
 // No voice: back to the stopped change, hidden behind the "path two" card in the video.
 await scene("rewind", async () => {
   await page.evaluate(() => window.__setSpeed(40));
@@ -228,7 +229,7 @@ await scene("rewind", async () => {
   await key("r");
   await pill("Stopped");
   await page.evaluate(() => { window.__setSpeed(1); window.scrollTo(0, 150); });
-}, 1.2);
+}, 0.5);
 await scene("approve", async (start) => {
   await at(start, 2.6);
   await key("a");
@@ -236,6 +237,7 @@ await scene("approve", async (start) => {
   await pill("Countersigned");
   moment("countersigned");
   await wait(1200);
+  await boxOf("signoff", "#chkSignoff");
   await boxOf("verdictSigned", "#verdict");
   await boxOf("mergeBoxSigned", "#mergeBox");
   await at(start, 9.0);

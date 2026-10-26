@@ -43,12 +43,24 @@
       "text": "Either way, every decision becomes a signed audit record. What was checked, what went wrong, and who approved it."
     },
     {
-      "id": "proof",
-      "text": "And this isn't a mock-up. Countersign runs today, as a real check on GitHub. On this pull request, the normal tests pass, Countersign fails, and GitHub blocks the merge."
+      "id": "gh1",
+      "text": "Now the real thing. Countersign already runs as a check on GitHub. Here is Rohan's pull request, and the line that changes paise to rupees."
     },
     {
-      "id": "proof2",
-      "text": "It posts the evidence right on the pull request, and saves the audit record with the run. When the fix is pushed, every check turns green."
+      "id": "gh2",
+      "text": "GitHub runs two checks on it. The normal tests pass. Then Countersign runs, and fails."
+    },
+    {
+      "id": "gh3",
+      "text": "It posts the evidence right on the pull request: a nine hundred rupee refund would go out as ninety thousand. And GitHub blocks the merge."
+    },
+    {
+      "id": "gh4",
+      "text": "Now Rohan pushes the fix. GitHub runs both checks again, on the new commit. This time, both pass."
+    },
+    {
+      "id": "gh5",
+      "text": "Countersign updates the same comment to all clear, and GitHub lets the change merge."
     },
     {
       "id": "close",

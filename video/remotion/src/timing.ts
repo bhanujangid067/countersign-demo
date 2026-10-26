@@ -25,18 +25,28 @@ export const boxes = site.boxes as Record<string, Box | null>;
 export const siteAt = (id: string) => marks[id] - marks.overview;
 export const momentAt = (name: string) => moments[name] - marks.overview;
 export const SITE_TRIM = marks.overview; // where the website section starts in site.mp4
-export const SITE_SCENES = ["overview", "change", "check1", "check2", "stopped", "paths", "fix", "rewind", "approve", "audit"];
+export const SITE_SCENES = ["overview", "change", "check1", "check2", "stopped", "fix", "rewind", "approve", "audit"];
 export const VOICED = new Set(["overview", "change", "check1", "check2", "stopped", "fix", "approve", "audit"]);
 
-export const VOICE_IN = { title: 1.5, problem: 0.5, proof: 0.6, close: 1.4 };
-const PROOF_GAP = 1.1; // lets "BLOCKED" land before the next line
-export const proof2At = VOICE_IN.proof + line("proof").seconds + PROOF_GAP;
+export const VOICE_IN = { title: 1.5, problem: 0.5, close: 1.4 };
+
+// The GitHub section: five voice lines, one after another.
+export const GH_LINES = ["gh1", "gh2", "gh3", "gh4", "gh5"];
+const GH_IN = 0.7, GH_GAP = 0.6;
+const ghStarts: Record<string, number> = {};
+let at = GH_IN;
+for (const id of GH_LINES) {
+  ghStarts[id] = at;
+  at += line(id).seconds + GH_GAP;
+}
+export const ghAt = (id: string) => ghStarts[id]; // seconds into the GitHub section
+export const ghSaid = (id: string, phrase: string) => ghAt(id) + said(id, phrase);
 
 export const DUR = {
   title: sec(VOICE_IN.title + line("title").seconds + 1.0),
   problem: sec(VOICE_IN.problem + line("problem").seconds + 2.2),
   site: sec(marks.end - marks.overview),
-  proof: sec(proof2At + line("proof2").seconds + 1.8),
+  github: sec(at + 1.2),
   close: sec(Math.max(VOICE_IN.close + line("close").seconds + 3.6, 6.5)),
 };
-export const TOTAL = DUR.title + DUR.problem + DUR.site + DUR.proof + DUR.close - 4 * TRANSITION;
+export const TOTAL = DUR.title + DUR.problem + DUR.site + DUR.github + DUR.close - 4 * TRANSITION;

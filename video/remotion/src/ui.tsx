@@ -49,20 +49,20 @@ export const Captions: React.FC<{ text: string; seconds: number }> = ({ text, se
   const local = t - cur.start;
   const opacity = interpolate(local, [0, 0.18], [0, 1], clamp) * interpolate(t, [cur.end, cur.end + 0.25], [1, 0], clamp);
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 26, pointerEvents: "none" }}>
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 16, pointerEvents: "none" }}>
       <div
         style={{
           opacity,
           translate: `0 ${interpolate(local, [0, 0.25], [8, 0], { ...clamp, easing: easeOut })}px`,
-          maxWidth: 1780,
+          maxWidth: 1600,
           textAlign: "center",
           fontFamily: SANS,
           fontWeight: 500,
-          fontSize: 37,
+          fontSize: 33,
           lineHeight: 1.3,
           color: C.paper,
           background: "rgba(26,26,26,0.9)",
-          padding: "12px 30px 14px",
+          padding: "9px 26px 11px",
           borderRadius: 14,
           boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
         }}
