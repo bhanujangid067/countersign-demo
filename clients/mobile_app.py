@@ -7,6 +7,6 @@ can update it in the same pull request. Every other app is owned by another team
 
 def refund_request(order_id: str, refund_paise: int) -> dict:
     """The request the mobile app sends to POST /v1/refunds for one refund."""
-    # The refund API now takes rupees, so turn paise into rupees (90000 -> 900, 4950 -> 49.5).
+    # Send rupees and say so. Apps that send no "unit" are still read as paise.
     rupees = refund_paise / 100
-    return {"order_id": order_id, "amount": int(rupees) if rupees == int(rupees) else rupees}
+    return {"order_id": order_id, "amount": int(rupees) if rupees == int(rupees) else rupees, "unit": "rupees"}
