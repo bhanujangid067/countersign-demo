@@ -948,7 +948,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         shown.map(function (w) {
           return '<tr><td><code>' + esc(w[1]) + '</code></td><td>' + esc(w[2]) + '</td><td class="num">' + inr(w[3]) + '</td><td class="num">' + inr(w[4]) + '</td><td class="num over">' + inr(w[5]) + '</td></tr>';
         }).join("") + '</tbody></table></div>' +
-        (done && m.wrong.length > 5 ? '<p class="explain muted" style="font-size:13px">And ' + n(m.wrong.length - 5) + ' more. Order numbers are masked, and all of it is sample data.</p>' : "");
+        (done && m.wrong.length > 5 ? '<p class="explain muted" style="font-size:13px">And ' + n(m.wrong.length - 5) + ' more. Together, these ' + n(m.wrong.length) + ' refunds would send <b>' + crore(m.over_refund_paise) + '</b> too much. Order numbers are masked, and all of it is sample data.</p>' : "");
     }
     checkShell(el, "money", 2, answer, body);
   }
