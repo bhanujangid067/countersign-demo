@@ -15,10 +15,12 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from countersign.check_money import build_request, read_refunds, rule_holds, send
-from countersign.common import load_config, load_handler, load_yaml, mask_order, read_gateway_log
+from countersign.check_money import rule_holds, send
+from countersign.common import (
+    load_config, load_handler, load_yaml, mask_order, read_gateway_log, read_refunds, request_builder,
+)
 
-DIFF_FILES = ["service/refund_api.py", "service/openapi.yaml", "data/gateway_log.jsonl", "service/tests/test_refunds.py"]
+DIFF_FILES = ["service/refund_api.py", "service/openapi.yaml", "clients/mobile_app.py", "service/tests/test_refunds.py"]
 
 
 def file_diff(old_dir: Path, new_dir: Path, path: str) -> dict | None:
@@ -44,24 +46,28 @@ def replay(base: Path, head: Path, config: dict) -> dict:
     rules = load_yaml(base / config["rules"])["rules"]
     old_handler = load_handler(base, config["handler"])
     new_handler = load_handler(head, config["handler"])
-    old_log = {e["caller"]: e for e in read_gateway_log(base / config["gateway_log"])}
-    new_log = {e["caller"]: e for e in read_gateway_log(head / config["gateway_log"])}
     refunds = read_refunds(base / config["replay_data"])
+    ledger = {row["order_id"]: row["refund_paise"] for row in refunds}
+    log = {e["caller"]: e for e in read_gateway_log(base / config["gateway_log"])}
+    old_build = {c: request_builder(e, base, config, ledger) for c, e in log.items()}
+    new_build = {c: request_builder(e, head, config, ledger) for c, e in log.items()}
 
-    wrong, over = [], 0
+    wrong, over, not_sent = [], 0, 0
     for i, row in enumerate(refunds):
-        before = send(old_handler, build_request(row, old_log[row["caller"]]))
-        after = send(new_handler, build_request(row, new_log[row["caller"]]))
+        before = send(old_handler, old_build[row["caller"]](row))
+        after = send(new_handler, new_build[row["caller"]](row))
         values = {"paid": row["paid_paise"], "refund_asked": row["refund_paise"],
                   "refund_before": before, "refund_out": after}
         broken = after is None or not all(rule_holds(r["check"], values) for r in rules)
         if broken:
             # [row number, masked order, caller, paid, old code sent, new code sends]
-            wrong.append([i, mask_order(row["order_id"]), new_log[row["caller"]]["name"],
+            wrong.append([i, mask_order(row["order_id"]), log[row["caller"]]["name"],
                           row["paid_paise"], before, after])
             if after is not None and before is not None:
                 over += after - before
-    return {"replayed": len(refunds), "wrong": wrong, "over_refund_paise": over,
+            elif before is not None:
+                not_sent += before
+    return {"replayed": len(refunds), "wrong": wrong, "over_refund_paise": over, "not_sent_paise": not_sent,
             "rules": [{"check": r["check"], "message": r["message"]} for r in rules]}
 
 

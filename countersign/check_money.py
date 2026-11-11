@@ -2,49 +2,26 @@
 
 Replays last week's refunds (masked sample data) through the old code and the new code,
 building each request the way that caller really sends it, then checks the money rules.
+A caller whose code is in this repo is run from the PR; every other caller is rebuilt from
+its recorded requests in the gateway log.
 Exits with 1 if any rule is broken, so the GitHub check fails.
 
 Usage: python -m countersign.check_money --base <old code dir> --head <new code dir> --out out/money.json
 """
 
 import argparse
-import csv
 import operator
 import sys
 from pathlib import Path
 
 from countersign.common import (
-    inr, inr_short, load_config, load_handler, load_yaml, mask_order, paint, read_gateway_log, write_json,
+    inr, inr_short, load_config, load_handler, load_yaml, mask_order, paint, read_gateway_log, read_refunds,
+    request_builder, write_json,
 )
 
 COMPARE = {"<=": operator.le, "<": operator.lt, ">=": operator.ge, ">": operator.gt,
            "==": operator.eq, "!=": operator.ne}
 EXAMPLES_TO_SHOW = 3
-
-
-def read_refunds(path: Path) -> list[dict]:
-    with Path(path).open() as f:
-        lines = [line for line in f if not line.startswith("#")]
-    rows = list(csv.DictReader(lines))
-    for row in rows:
-        row["paid_paise"] = int(row["paid_paise"])
-        row["refund_paise"] = int(row["refund_paise"])
-    return rows
-
-
-def build_request(row: dict, entry: dict) -> dict:
-    """The refund request this caller would send for this row."""
-    unit = entry["units"]["amount"]
-    if unit == "paise":
-        amount = row["refund_paise"]
-    else:
-        amount = row["refund_paise"] / 100
-        if amount == int(amount):
-            amount = int(amount)
-    request = {"order_id": row["order_id"], "amount": amount}
-    if "unit" in entry["fields_sent"]:
-        request["unit"] = unit
-    return request
 
 
 def send(handler, request: dict) -> int | None:
@@ -69,21 +46,23 @@ def main() -> int:
     args = parser.parse_args()
 
     config = load_config()
-    # Rules and replay data come from the base branch, so a PR can't weaken the checks on itself.
-    # The gateway log comes from the PR branch, because it shows callers updated in this change.
+    # Rules, replay data and the gateway log come from the base branch, so a PR can't weaken
+    # the checks on itself. Only the code under test (the API and in-repo callers) comes from the PR.
     rules = load_yaml(args.base / config["rules"])["rules"]
     old_handler = load_handler(args.base, config["handler"])
     new_handler = load_handler(args.head, config["handler"])
-    old_log = {e["caller"]: e for e in read_gateway_log(args.base / config["gateway_log"])}
-    new_log = {e["caller"]: e for e in read_gateway_log(args.head / config["gateway_log"])}
     refunds = read_refunds(args.base / config["replay_data"])
+    ledger = {row["order_id"]: row["refund_paise"] for row in refunds}
+    log = {e["caller"]: e for e in read_gateway_log(args.base / config["gateway_log"])}
+    old_build = {c: request_builder(e, args.base, config, ledger) for c, e in log.items()}
+    new_build = {c: request_builder(e, args.head, config, ledger) for c, e in log.items()}
 
     broken_count = {rule["id"]: 0 for rule in rules}
     rejected = 0
     wrong = []
     for row in refunds:
-        before = send(old_handler, build_request(row, old_log[row["caller"]]))
-        after = send(new_handler, build_request(row, new_log[row["caller"]]))
+        before = send(old_handler, old_build[row["caller"]](row))
+        after = send(new_handler, new_build[row["caller"]](row))
         if after is None:
             if before is not None:
                 rejected += 1
@@ -100,22 +79,27 @@ def main() -> int:
 
     examples = [{
         "order": mask_order(w["row"]["order_id"]),
-        "caller": new_log[w["row"]["caller"]]["name"],
+        "caller": log[w["row"]["caller"]]["name"],
         "paid_paise": w["row"]["paid_paise"],
         "before_paise": w["before"],
         "after_paise": w["after"],
         "rule": w["rule"],
     } for w in wrong[:EXAMPLES_TO_SHOW]]
 
-    # How much extra money the wrong refunds would send, in total and per app.
-    over_refund = 0
+    # How much money the wrong refunds move, in total and per app: extra money sent, and
+    # money that went out before but would now be turned away.
+    over_refund = not_sent = 0
     by_caller = {}
     for w in wrong:
         extra = w["after"] - w["before"] if w["after"] is not None and w["before"] is not None else 0
+        held = w["before"] if w["after"] is None else 0
         over_refund += extra
-        app = by_caller.setdefault(new_log[w["row"]["caller"]]["name"], {"wrong": 0, "over_refund_paise": 0})
+        not_sent += held
+        app = by_caller.setdefault(log[w["row"]["caller"]]["name"],
+                                   {"wrong": 0, "over_refund_paise": 0, "not_sent_paise": 0})
         app["wrong"] += 1
         app["over_refund_paise"] += extra
+        app["not_sent_paise"] += held
 
     result = {
         "check": "is-the-money-right",
@@ -124,6 +108,7 @@ def main() -> int:
         "wrong": len(wrong),
         "rejected": rejected,
         "over_refund_paise": over_refund,
+        "not_sent_paise": not_sent,
         "by_caller": by_caller,
         "rules": [{"id": r["id"], "check": r["check"], "message": r["message"], "broken": broken_count[r["id"]]}
                   for r in rules],
@@ -146,6 +131,8 @@ def main() -> int:
             print(paint(f"  ✗ Together they would send {inr_short(over_refund)} too much", "red", "bold"))
             for name, app in by_caller.items():
                 print(paint(f"    {name:<22} {app['wrong']:>5,} refunds   {inr_short(app['over_refund_paise'])} too much", "red"))
+        if not_sent > 0:
+            print(paint(f"  ✗ Together, {inr_short(not_sent)} that went out last week would be turned away", "red", "bold"))
         return 1
     print(paint(f"  ✓ All {len(refunds):,} refunds follow the money rules", "green"))
     return 0
