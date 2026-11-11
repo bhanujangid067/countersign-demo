@@ -17,7 +17,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from countersign.common import inr, load_config, paint, short_count, write_json
+from countersign.common import inr, inr_short, load_config, paint, short_count, write_json
 
 MARKER = "<!-- countersign -->"
 ARTIFACT_LINK = "{{AUDIT_LINK}}"  # filled in after the audit record is uploaded
@@ -49,6 +49,8 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
             f"Re-ran last week's refunds through this change: **{money['wrong']:,} of {money['replayed']:,}** wrong",
             f"Example: paid **{inr(first['paid_paise'])}** → refund sent **{sent}**",
         ]
+        if money.get("over_refund_paise", 0) > 0:
+            lines.append(f"In total: **{inr_short(money['over_refund_paise'])}** too much would go out")
     lines.append("")
 
     if broken:
@@ -75,6 +77,12 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
         for e in money["examples"]:
             after = inr(e["after_paise"]) if e["after_paise"] is not None else "rejected"
             lines.append(f"| `{e['order']}` | {e['caller']} | {inr(e['paid_paise'])} | {inr(e['before_paise'])} | **{after}** |")
+        lines.append("")
+    if any(app["over_refund_paise"] > 0 for app in money.get("by_caller", {}).values()):
+        lines += ["**Extra money sent, by app** (one week of sample data)", "",
+                  "| App | Wrong refunds | Too much sent |", "|---|---:|---:|"]
+        for name, app in money["by_caller"].items():
+            lines.append(f"| {name} | {app['wrong']:,} | {inr_short(app['over_refund_paise'])} |")
         lines.append("")
     lines += [f"**Who calls {api}** ({callers['total']} callers, from gateway logs)", "",
               "| Caller | Calls/day | Breaks? | Why |", "|---|---:|---|---|"]
@@ -137,7 +145,10 @@ def main() -> int:
             "who_will_break": {"passed": callers["passed"], "callers_checked": callers["total"],
                                "callers_affected": [c["name"] for c in callers["callers"] if c["affected"]]},
             "is_the_money_right": {"passed": money["passed"], "replayed": money["replayed"],
-                                   "wrong": money["wrong"], "rules": money["rules"],
+                                   "wrong": money["wrong"],
+                                   "over_refund_paise": money.get("over_refund_paise", 0),
+                                   "over_refund_by_caller": money.get("by_caller", {}),
+                                   "rules": money["rules"],
                                    "examples": money["examples"]},
         },
         "sign_off": {

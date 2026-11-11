@@ -12,7 +12,7 @@ Countersign is a check that runs on every pull request. If a change could send t
 
 1. **The change.** A developer changes the refund API so `amount` means **rupees** instead of **paise** (₹1 = 100 paise). They update the mobile app in the same change. **All the normal tests pass.**
 2. **Check 1: who will break?** Countersign finds that 2 of the 8 apps calling the API still send paise: the **merchant dashboard** and the **partner shopping app**.
-3. **Check 2: is the money right?** It replays last week's refunds through the new code: **paid ₹900.00 → refund sent ₹90,000.00**. 890 of 4,180 refunds would be wrong. Rule broken: a refund can't be more than what was paid.
+3. **Check 2: is the money right?** It replays last week's refunds through the new code: **paid ₹900.00 → refund sent ₹90,000.00**. 890 of 4,180 refunds would be wrong, sending **₹94.1 crore** too much in one week. Rule broken: a refund can't be more than what was paid.
 4. **Stopped.** The PR check fails, and the PR comment shows the exact refund that broke.
 5. **Check 3: who signs off?** Either the developer pushes a fix and everything goes green, or the **payments lead** approves the risk. An audit record is saved either way.
 
@@ -97,6 +97,7 @@ The repo plays two roles at once:
 ### Check 2: Is the money right? (`countersign/check_money.py`)
 - It takes last week's refunds (masked sample data) and **runs each one through both the old code and the new code**, building each request the way that app really sends it.
 - Then it checks the **money rules** in `countersign/rules.yaml`. The main one: `refund_out <= paid`, meaning a refund can't be more than what was paid.
+- It adds up how much extra money the wrong refunds would send, in total and per app. The payments lead sees that total in the PR comment before deciding, and it's saved in the audit record.
 - If any rule breaks, it exits with an error, so the GitHub check fails.
 
 ### Check 3: Who signs off? (`countersign/report.py`, `countersign/github.py`)

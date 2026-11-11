@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from countersign.common import (
-    inr, load_config, load_handler, load_yaml, mask_order, paint, read_gateway_log, write_json,
+    inr, inr_short, load_config, load_handler, load_yaml, mask_order, paint, read_gateway_log, write_json,
 )
 
 COMPARE = {"<=": operator.le, "<": operator.lt, ">=": operator.ge, ">": operator.gt,
@@ -107,12 +107,24 @@ def main() -> int:
         "rule": w["rule"],
     } for w in wrong[:EXAMPLES_TO_SHOW]]
 
+    # How much extra money the wrong refunds would send, in total and per app.
+    over_refund = 0
+    by_caller = {}
+    for w in wrong:
+        extra = w["after"] - w["before"] if w["after"] is not None and w["before"] is not None else 0
+        over_refund += extra
+        app = by_caller.setdefault(new_log[w["row"]["caller"]]["name"], {"wrong": 0, "over_refund_paise": 0})
+        app["wrong"] += 1
+        app["over_refund_paise"] += extra
+
     result = {
         "check": "is-the-money-right",
         "data": f"{config['replay_data']} (sample data)",
         "replayed": len(refunds),
         "wrong": len(wrong),
         "rejected": rejected,
+        "over_refund_paise": over_refund,
+        "by_caller": by_caller,
         "rules": [{"id": r["id"], "check": r["check"], "message": r["message"], "broken": broken_count[r["id"]]}
                   for r in rules],
         "examples": examples,
@@ -130,6 +142,10 @@ def main() -> int:
             after = inr(e["after_paise"]) if e["after_paise"] is not None else "rejected"
             print(paint(f"    {e['order']}  {e['caller']:<22} paid {inr(e['paid_paise']):>12}  →  refund sent {after}",
                         "red"))
+        if over_refund > 0:
+            print(paint(f"  ✗ Together they would send {inr_short(over_refund)} too much", "red", "bold"))
+            for name, app in by_caller.items():
+                print(paint(f"    {name:<22} {app['wrong']:>5,} refunds   {inr_short(app['over_refund_paise'])} too much", "red"))
         return 1
     print(paint(f"  ✓ All {len(refunds):,} refunds follow the money rules", "green"))
     return 0

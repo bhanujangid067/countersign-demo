@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from countersign.common import inr, load_config, short_count
+from countersign.common import inr, inr_short, load_config, short_count
 
 # Other APIs shown in the "Protected APIs" list. Sample entries only: this demo checks refund-api.
 OTHER_APIS = [("payments-api", "No open changes"), ("payouts-api", "No open changes")]
@@ -224,7 +224,9 @@ def build(callers: dict, money: dict, audit: dict, number: str, title: str) -> s
         first = money["examples"][0]
         sent = inr(first["after_paise"]) if first["after_paise"] is not None else "rejected"
         c2 = ("bad", f"{money['wrong']:,} of {money['replayed']:,} wrong",
-              f"Rule broken: {esc(first['rule'])}.",
+              f"Rule broken: {esc(first['rule'])}."
+              + (f" In total, {inr_short(money['over_refund_paise'])} too much would go out."
+                 if money.get("over_refund_paise", 0) > 0 else ""),
               f'<div class="example">Paid {inr(first["paid_paise"])} → refund sent <b class="bad">{sent}</b></div>')
 
     # Card 3: who signs off?

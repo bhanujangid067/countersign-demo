@@ -66,6 +66,16 @@ def inr(paise: int) -> str:
     return f"₹{digits}.{rest:02d}"
 
 
+def inr_short(paise: int) -> str:
+    """For totals: 9411649830000 -> "₹94.1 crore"; 12500000 -> "₹1.3 lakh"; small amounts as inr()."""
+    rupees = int(paise) / 100
+    if rupees >= 1e7:
+        return f"₹{rupees / 1e7:.1f} crore"
+    if rupees >= 1e5:
+        return f"₹{rupees / 1e5:.1f} lakh"
+    return inr(paise)
+
+
 def mask_order(order_id: str) -> str:
     """ord_FbXXZg41 -> ord_••41"""
     return f"ord_••{order_id[-2:]}"

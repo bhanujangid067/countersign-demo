@@ -23,9 +23,16 @@ export FORCE_COLOR=1 PYTHONDONTWRITEBYTECODE=1
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
+# On a fresh clone only main exists locally; the other two are still origin/<branch>.
+ref_of() {
+  git rev-parse --verify -q "$1^{commit}" || git rev-parse --verify -q "origin/$1^{commit}" || {
+    echo "Can't find branch '$1'. Run: git fetch origin" >&2
+    exit 2
+  }
+}
 for ref in main bad-change fix; do
   mkdir -p "$WORK/$ref"
-  git archive "$ref" | tar -x -C "$WORK/$ref"
+  git archive "$(ref_of "$ref")" | tar -x -C "$WORK/$ref"
 done
 
 if [ -n "${NO_COLOR:-}" ]; then B="" T="" R=""; else B=$'\033[1m' T=$'\033[1;34m' R=$'\033[0m'; fi
@@ -54,7 +61,7 @@ check_change() {
   echo
   local verdict=0
   "$PY" -m countersign.report --callers "$out/callers.json" --money "$out/money.json" \
-    --out-dir "$out" --pr "$1" --commit "$(git -C "$ROOT" rev-parse "$1")" --repo local || verdict=$?
+    --out-dir "$out" --pr "$1" --commit "$(cd "$ROOT" && ref_of "$1")" --repo local || verdict=$?
   cd "$ROOT"
 
   echo
