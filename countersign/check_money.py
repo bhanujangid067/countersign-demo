@@ -67,7 +67,7 @@ def main() -> int:
             if before is not None:
                 rejected += 1
                 wrong.append({"row": row, "before": before, "after": None,
-                              "rule": "refund that worked before is now rejected"})
+                              "rule": "a refund that went out before is now turned away"})
             continue
         values = {"paid": row["paid_paise"], "refund_asked": row["refund_paise"],
                   "refund_before": before, "refund_out": after}
@@ -124,9 +124,8 @@ def main() -> int:
         print(paint(f"  ✗ {len(wrong):,} of {len(refunds):,} refunds broke a money rule: {'; '.join(messages)}",
                     "red", "bold"))
         for e in examples:
-            after = inr(e["after_paise"]) if e["after_paise"] is not None else "rejected"
-            print(paint(f"    {e['order']}  {e['caller']:<22} paid {inr(e['paid_paise']):>12}  →  refund sent {after}",
-                        "red"))
+            after = f"refund sent {inr(e['after_paise'])}" if e["after_paise"] is not None else "turned away"
+            print(paint(f"    {e['order']}  {e['caller']:<22} paid {inr(e['paid_paise']):>12}  →  {after}", "red"))
         if over_refund > 0:
             print(paint(f"  ✗ Together they would send {inr_short(over_refund)} too much", "red", "bold"))
             for name, app in by_caller.items():

@@ -212,7 +212,8 @@ def main() -> int:
         verdict = "no breaking changes found" if fc.get("breaking") == 0 else f"{fc.get('breaking', '?')} breaking change(s)"
         print(f"  Format check ({fc['tool']}): {verdict}")
     for c in changes:
-        parts = [f"{k} {v['before']} → {v['after']}" for k, v in c["changes"].items() if k != "description"]
+        show = lambda value: "none" if value is None else value
+        parts = [f"{k} {show(v['before'])} → {show(v['after'])}" for k, v in c["changes"].items() if k != "description"]
         print(f"  Changed: {c['field']} in {c['method']} {c['path']}" + (f" ({', '.join(parts)})" if parts else ""))
     if not changes:
         print("  No request fields changed meaning")

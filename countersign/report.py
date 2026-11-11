@@ -43,19 +43,22 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
         lines.append(f"✅ **Money rules hold** — re-ran {money['replayed']:,} of last week's refunds, all correct")
     else:
         first = money["examples"][0]
-        sent = inr(first["after_paise"]) if first["after_paise"] is not None else "rejected"
+        sent = (f"refund sent **{inr(first['after_paise'])}**" if first["after_paise"] is not None
+                else f"**turned away** (old code sent {inr(first['before_paise'])})")
         lines += [
             f"❌ **Money rule broken** — {first['rule']}",
             f"Re-ran last week's refunds through this change: **{money['wrong']:,} of {money['replayed']:,}** wrong",
-            f"Example: paid **{inr(first['paid_paise'])}** → refund sent **{sent}**",
+            f"Example: paid **{inr(first['paid_paise'])}** → {sent}",
         ]
+        if money.get("not_sent_paise", 0) > 0:
+            lines.append(f"In total: **{inr_short(money['not_sent_paise'])}** that went out last week would be turned away")
         if money.get("over_refund_paise", 0) > 0:
             lines.append(f"In total: **{inr_short(money['over_refund_paise'])}** too much would go out")
     lines.append("")
 
     if broken:
         names = " · ".join(c["name"].lower() for c in broken)
-        lines.append(f"⚠️ **{len(broken)} apps use this field** — {names}")
+        lines.append(f"⚠️ **{len(broken)} {'app is' if len(broken) == 1 else 'apps are'} affected** — {names}")
     else:
         lines.append(f"✅ **No apps break** — checked {callers['total']} callers")
     lines.append("")
@@ -65,6 +68,10 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
         lines.append(f"➡️ **Needs approval from:** {who}")
     elif verdict == "approved":
         lines.append(f"✅ **Approved by {role}** @{approval['login']} at {approval['submitted_at']}")
+        if approval.get("reason"):
+            lines.append(f"Reason given: “{approval['reason']}”")
+        else:
+            lines.append("No reason was given with the approval")
     else:
         lines.append("✅ **No sign-off needed**")
     lines.append("")
@@ -75,20 +82,22 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
         lines += ["**Wrong refunds** (sample data, order ids masked)", "",
                   "| Order | Caller | Paid | Old code sent | This change sends |", "|---|---|---:|---:|---:|"]
         for e in money["examples"]:
-            after = inr(e["after_paise"]) if e["after_paise"] is not None else "rejected"
+            after = inr(e["after_paise"]) if e["after_paise"] is not None else "turned away"
             lines.append(f"| `{e['order']}` | {e['caller']} | {inr(e['paid_paise'])} | {inr(e['before_paise'])} | **{after}** |")
         lines.append("")
-    if any(app["over_refund_paise"] > 0 for app in money.get("by_caller", {}).values()):
-        lines += ["**Extra money sent, by app** (one week of sample data)", "",
-                  "| App | Wrong refunds | Too much sent |", "|---|---:|---:|"]
+    if money.get("by_caller"):
+        lines += ["**Money affected, by app** (one week of sample data)", "",
+                  "| App | Wrong refunds | Too much sent | Turned away |", "|---|---:|---:|---:|"]
         for name, app in money["by_caller"].items():
-            lines.append(f"| {name} | {app['wrong']:,} | {inr_short(app['over_refund_paise'])} |")
+            lines.append(f"| {name} | {app['wrong']:,} | {inr_short(app['over_refund_paise'])} "
+                         f"| {inr_short(app.get('not_sent_paise', 0))} |")
         lines.append("")
     lines += [f"**Who calls {api}** ({callers['total']} callers, from gateway logs)", "",
-              "| Caller | Calls/day | Breaks? | Why |", "|---|---:|---|---|"]
+              "| Caller | Calls/day | Breaks? | Why | How we know what it sends |", "|---|---:|---|---|---|"]
     for c in callers["callers"]:
         mark = "**yes**" if c["affected"] else "no"
-        lines.append(f"| {c['name']} | {short_count(c['calls_per_day'])} | {mark} | {c['reason']} |")
+        lines.append(f"| {c['name']} | {short_count(c['calls_per_day'])} | {mark} | {c['reason']} "
+                     f"| {c.get('evidence', '')} |")
     lines.append("")
     if callers["changed_fields"]:
         lines.append("**What changed in the API**")
@@ -147,6 +156,7 @@ def main() -> int:
             "is_the_money_right": {"passed": money["passed"], "replayed": money["replayed"],
                                    "wrong": money["wrong"],
                                    "over_refund_paise": money.get("over_refund_paise", 0),
+                                   "not_sent_paise": money.get("not_sent_paise", 0),
                                    "over_refund_by_caller": money.get("by_caller", {}),
                                    "rules": money["rules"],
                                    "examples": money["examples"]},
@@ -157,6 +167,7 @@ def main() -> int:
             "approver_github_user": approver,
             "approved_by": approval["login"] if approval else None,
             "approved_at": approval["submitted_at"] if approval else None,
+            "reason": (approval.get("reason") or None) if approval else None,
         },
         "verdict": verdict,
         "note": "Countersign demo on one sample API with made-up sample data.",
@@ -172,6 +183,8 @@ def main() -> int:
         print(paint("  ✗ STOPPED — this change can't go live yet", "red", "bold"))
     elif verdict == "approved":
         print(paint(f"  ✓ Approved by {role} (@{approval['login']})", "green", "bold"))
+        if approval.get("reason"):
+            print(paint(f"    Reason given: “{approval['reason']}”", "green"))
     else:
         print(paint("  ✓ No sign-off needed — ALL CLEAR", "green", "bold"))
     print(paint(f"  Audit record saved: {audit_id}", "dim"))
