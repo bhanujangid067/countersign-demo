@@ -91,7 +91,8 @@ components:
           type: string
         amount:
           type: integer
-          description: Amount to refund, in paise (₹1 = 100 paise).
+          description: Amount to refund, in paise (₹1 = 100 paise). At most ₹1,00,000; larger refunds need manual review.
+          maximum: 10000000
           x-unit: paise
     Refund:
       type: object
