@@ -2,9 +2,15 @@
 
 1. Format check: run oasdiff on the old and new API spec. It catches format changes
    (a field removed, a type narrowed), but not a change in what a number *means*.
-2. Meaning check: compare each request field's unit and description ourselves.
-3. Cross the changed fields with the gateway log: any caller that sends a changed field,
-   in a unit the new API will read differently, will break.
+2. Meaning check: compare each request field's unit, limit and description ourselves.
+3. Work out what each caller really sends. Nobody labels that for us:
+   - a caller whose code is in this repo: run its code from the PR and look at the request;
+   - any other caller: take its recorded requests from the gateway log and match them with
+     last week's ledger (amount equals the paise refunded -> paise; 100 times smaller -> rupees).
+4. A caller breaks if it sends a changed field in a unit the new API reads differently,
+   or if refunds it sent last week are above a limit the change adds.
+
+The gateway log and the ledger come from the base branch, so a PR can't edit the evidence.
 
 Usage: python -m countersign.check_callers --base <old code dir> --head <new code dir> --out out/callers.json
 """
@@ -16,7 +22,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from countersign.common import load_config, load_yaml, paint, read_gateway_log, short_count, write_json
+from countersign.common import (
+    load_config, load_yaml, paint, read_gateway_log, read_refunds, request_builder, short_count,
+    unit_sent, write_json,
+)
 
 METHODS = ("get", "post", "put", "patch", "delete")
 
@@ -57,7 +66,7 @@ def unit_of(field: dict) -> str | None:
 
 
 def changed_fields(base: dict, head: dict) -> list[dict]:
-    """Request fields whose type, unit or description differ between the two specs."""
+    """Request fields whose type, unit, limit or description differ between the two specs."""
     changes = []
     head_ops = request_fields(head)
     for op, base_props in request_fields(base).items():
@@ -70,6 +79,7 @@ def changed_fields(base: dict, head: dict) -> list[dict]:
             for what, before, after in (
                 ("type", old.get("type"), new.get("type")),
                 ("unit", unit_of(old), unit_of(new)),
+                ("maximum", old.get("maximum"), new.get("maximum")),
                 ("description", old.get("description"), new.get("description")),
             ):
                 if before != after:
@@ -79,16 +89,24 @@ def changed_fields(base: dict, head: dict) -> list[dict]:
     return changes
 
 
-def unit_api_reads(field: dict, entry: dict, name: str) -> str | None:
+def unit_api_reads(field: dict, fields_sent: set, sends: str | None) -> str | None:
     """Which unit the API will read this caller's field in.
 
     If the field has an 'x-unit-field' (e.g. a separate "unit" field) and the caller sends it,
     the API reads whatever unit the caller says. Otherwise it reads the field's default unit.
     """
     override = field.get("x-unit-field")
-    if override and override in entry.get("fields_sent", []):
-        return entry["units"][name]
+    if override and override in fields_sent:
+        return sends
     return unit_of(field)
+
+
+def new_limit(old: dict, new: dict) -> float | None:
+    """The field's maximum, if this change adds one or lowers it."""
+    limit, before = new.get("maximum"), old.get("maximum")
+    if limit is not None and (before is None or limit < before):
+        return limit
+    return None
 
 
 def format_check(base_spec: Path, head_spec: Path) -> dict:
@@ -120,36 +138,58 @@ def main() -> int:
     base_ops = request_fields(base)
 
     changes = changed_fields(base, head)
-    old_log = {e["caller"]: e for e in read_gateway_log(args.base / config["gateway_log"])}
-    new_log = read_gateway_log(args.head / config["gateway_log"])
+    # Evidence comes from the base branch: the PR being checked can't edit it.
+    refunds = read_refunds(args.base / config["replay_data"])
+    ledger = {row["order_id"]: row["refund_paise"] for row in refunds}
+    log = read_gateway_log(args.base / config["gateway_log"])
+    in_repo = config.get("clients_in_repo") or {}
 
     callers = []
-    for entry in new_log:
+    for entry in log:
         op = (entry["method"], entry["path"])
-        uses = [c["field"] for c in changes
-                if (c["method"], c["path"]) == op and c["field"] in entry.get("fields_sent", [])]
-        affected, reason = False, ""
-        if not uses:
+        affected, reason, evidence = False, "", ""
+        sends_refunds = "recent_requests" in entry or entry["caller"] in in_repo
+        if sends_refunds:
+            # What this caller sent before the change, and what it will send after it.
+            mine = [row for row in refunds if row["caller"] == entry["caller"]]
+            old_build = request_builder(entry, args.base, config, ledger)
+            new_build = request_builder(entry, args.head, config, ledger)
+            old_requests = [old_build(row) for row in mine[:5]]
+            new_requests = [new_build(row) for row in mine[:5]]
+            seen = unit_sent(new_requests, ledger)
+            fields_sent = {key for request in new_requests for key in request}
+            if entry["caller"] in in_repo:
+                evidence = f"its code in this repo ({in_repo[entry['caller']].split(':')[0]})"
+            else:
+                evidence = f"{seen['matched']} of {seen['of']} recorded requests are in {seen['unit']}"
+        else:
+            fields_sent = set(entry.get("fields_sent", []))
+
+        uses = [c["field"] for c in changes if (c["method"], c["path"]) == op and c["field"] in fields_sent]
+        if not changes:
+            reason = "nothing it uses changed"
+        elif not uses:
             if entry.get("fields_read"):
                 reason = "reads " + ", ".join(entry["fields_read"]) + " only"
             else:
                 reason = "doesn't use the changed field"
         for name in uses:
-            sends = entry["units"][name]
-            reads = unit_api_reads(head_ops[op][name], entry, name)
+            sends = seen["unit"]
+            reads = unit_api_reads(head_ops[op][name], fields_sent, sends)
             if sends != reads:
                 affected = True
                 reason = f"sends {name} in {sends}, new code reads {reads}"
                 break
-            old = old_log.get(entry["caller"])
-            was = old and unit_api_reads(base_ops[op][name], old, name)
-            if old and (old.get("units") != entry.get("units") or old.get("fields_sent") != entry.get("fields_sent")):
-                reason = f"updated to {sends} in this change"
-            elif was == reads:
-                reason = "works as before"
+            limit = new_limit(base_ops[op][name], head_ops[op][name])
+            over = sum(1 for row in mine if new_build(row)[name] > limit) if limit is not None else 0
+            if over:
+                affected = True
+                reason = f"{over} of its refunds last week were above the new limit"
+                break
+            reason = f"updated to {sends} in this change" if old_requests != new_requests else "works as before"
         callers.append({
             "caller": entry["caller"], "name": entry["name"], "calls_per_day": entry["calls_per_day"],
-            "affected": affected, "reason": reason,
+            "affected": affected, "reason": reason, "evidence": evidence,
         })
 
     broken = [c for c in callers if c["affected"]]
@@ -172,7 +212,8 @@ def main() -> int:
         verdict = "no breaking changes found" if fc.get("breaking") == 0 else f"{fc.get('breaking', '?')} breaking change(s)"
         print(f"  Format check ({fc['tool']}): {verdict}")
     for c in changes:
-        parts = [f"{k} {v['before']} → {v['after']}" for k, v in c["changes"].items() if k != "description"]
+        show = lambda value: "none" if value is None else value
+        parts = [f"{k} {show(v['before'])} → {show(v['after'])}" for k, v in c["changes"].items() if k != "description"]
         print(f"  Changed: {c['field']} in {c['method']} {c['path']}" + (f" ({', '.join(parts)})" if parts else ""))
     if not changes:
         print("  No request fields changed meaning")
@@ -185,6 +226,10 @@ def main() -> int:
     for c in callers:
         if not c["affected"]:
             print(paint(f"    · {c['name']:<22} {short_count(c['calls_per_day']):>5} calls/day   {c['reason']}", "dim"))
+    print(paint("  How we know what each app sends (no labels, worked out from evidence):", "dim"))
+    for c in callers:
+        if c["evidence"]:
+            print(paint(f"    · {c['name']:<22} {c['evidence']}", "dim"))
     return 0
 
 

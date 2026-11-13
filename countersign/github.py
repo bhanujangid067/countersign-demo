@@ -56,8 +56,10 @@ def approval(repo: str, pr: str, head_sha: str, approver: str, out: Path) -> Non
                 latest = review
     found = None
     if latest and latest["state"] == "APPROVED":
+        # The text of the approving review is the reason. One line, kept short for the PR comment.
+        reason = " ".join((latest.get("body") or "").split())[:300]
         found = {"login": latest["user"]["login"], "submitted_at": latest["submitted_at"],
-                 "review_id": latest["id"], "commit": head_sha}
+                 "review_id": latest["id"], "commit": head_sha, "reason": reason}
     write_json(out, found or {})
     print(f"Approval from @{approver} on {head_sha[:7]}: {'yes' if found else 'no'}")
 

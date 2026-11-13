@@ -6,6 +6,11 @@ gateway_log: data/gateway_log.jsonl
 replay_data: data/refunds_last_week.csv
 rules: countersign/rules.yaml
 
+# Callers whose code lives in this repo. Countersign runs their code from the PR to see what
+# they will send. Every other caller is judged by the requests recorded in the gateway log.
+clients_in_repo:
+  mobile-app: clients/mobile_app.py:refund_request
+
 approver:
   role: payments lead
   # GitHub username of whoever plays the payments lead. Must NOT be the person who opens the PR

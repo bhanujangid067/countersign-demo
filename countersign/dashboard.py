@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from countersign.common import inr, load_config, short_count
+from countersign.common import inr, inr_short, load_config, short_count
 
 # Other APIs shown in the "Protected APIs" list. Sample entries only: this demo checks refund-api.
 OTHER_APIS = [("payments-api", "No open changes"), ("payouts-api", "No open changes")]
@@ -222,10 +222,15 @@ def build(callers: dict, money: dict, audit: dict, number: str, title: str) -> s
         c2 = ("good", "All correct", f"Re-ran {money['replayed']:,} of last week's refunds through this change.", "")
     else:
         first = money["examples"][0]
-        sent = inr(first["after_paise"]) if first["after_paise"] is not None else "rejected"
+        sent = (f'refund sent <b class="bad">{inr(first["after_paise"])}</b>' if first["after_paise"] is not None
+                else '<b class="bad">turned away</b>')
         c2 = ("bad", f"{money['wrong']:,} of {money['replayed']:,} wrong",
-              f"Rule broken: {esc(first['rule'])}.",
-              f'<div class="example">Paid {inr(first["paid_paise"])} → refund sent <b class="bad">{sent}</b></div>')
+              f"Rule broken: {esc(first['rule'])}."
+              + (f" In total, {inr_short(money['over_refund_paise'])} too much would go out."
+                 if money.get("over_refund_paise", 0) > 0 else "")
+              + (f" In total, {inr_short(money['not_sent_paise'])} would be turned away."
+                 if money.get("not_sent_paise", 0) > 0 else ""),
+              f'<div class="example">Paid {inr(first["paid_paise"])} → {sent}</div>')
 
     # Card 3: who signs off?
     sign = audit["sign_off"]
@@ -233,7 +238,8 @@ def build(callers: dict, money: dict, audit: dict, number: str, title: str) -> s
         c3 = ("bad", role.capitalize(), f"Needs approval from the {role} before this can go live.",
               '<button class="btn" type="button" data-demo-button>Request approval</button>')
     elif verdict == "approved":
-        c3 = ("good", "Approved", f"Approved by the {role} (@{esc(sign['approved_by'])}) at {esc(sign['approved_at'])}.", "")
+        c3 = ("good", "Approved", f"Approved by the {role} (@{esc(sign['approved_by'])}) at {esc(sign['approved_at'])}."
+              + (f" Reason given: “{esc(sign['reason'])}”" if sign.get("reason") else ""), "")
     else:
         c3 = ("good", "Not needed", "Nothing risky, so no sign-off is needed.", "")
 
@@ -242,7 +248,7 @@ def build(callers: dict, money: dict, audit: dict, number: str, title: str) -> s
         rows = "".join(
             f"<tr><td><code>{esc(e['order'])}</code></td><td>{esc(e['caller'])}</td>"
             f"<td class='num'>{inr(e['paid_paise'])}</td><td class='num'>{inr(e['before_paise'])}</td>"
-            f"<td class='num bad'>{inr(e['after_paise']) if e['after_paise'] is not None else 'rejected'}</td></tr>"
+            f"<td class='num bad'>{inr(e['after_paise']) if e['after_paise'] is not None else 'turned away'}</td></tr>"
             for e in money["examples"])
         examples = (
             '<section class="section"><h2>Wrong refunds (sample data, order ids masked)</h2>'

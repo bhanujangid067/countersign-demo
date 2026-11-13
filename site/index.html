@@ -85,6 +85,12 @@ h1, h2, h3 { text-wrap: balance; }
 .main { padding: 30px 36px 72px; max-width: 1260px; width: 100%; min-width: 0; }
 .crumbs { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
 .crumbs a { color: var(--muted); }
+.switch { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+.switch a { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); color: var(--ink-2); font-size: 13.5px; text-decoration: none; }
+.switch a.on { border-color: var(--pen); color: var(--ink); font-weight: 600; }
+.proof { margin-top: 12px; font-size: 13.5px; color: var(--ink-2); }
+.proof b { color: var(--ink); }
+.explain.reason { border-left: 3px solid var(--pen); padding-left: 12px; margin-top: 14px; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; margin-bottom: 22px; }
 .page-head h1 { font-size: 28px; line-height: 1.2; letter-spacing: -.02em; margin: 0; font-weight: 600; }
 .page-head p { margin: 6px 0 0; color: var(--ink-2); font-size: 16px; max-width: 62ch; }
@@ -478,12 +484,18 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
 <script>
 (function () {
   "use strict";
-  var D = window.COUNTERSIGN;
+  var ALL = window.COUNTERSIGN;
   var view = document.getElementById("view");
-  if (!D) {
+  if (!ALL) {
     view.innerHTML = '<div class="sheet sheet-b">Missing <code>data.js</code>. Run <code>scripts/demo_local.sh</code> to create it.</div>';
     return;
   }
+
+  // The demo has more than one change. D always holds the change being looked at, and S its state.
+  var CHANGES = ALL.changes || [{ change: ALL.change, bad: ALL.bad, fix: ALL.fix }];
+  CHANGES.forEach(function (c) { c.change.route = c.change.route || "change"; });
+  var D = { api: ALL.api, approver_role: ALL.approver_role, change: CHANGES[0].change, bad: CHANGES[0].bad, fix: CHANGES[0].fix };
+  var STATES = [], CUR = 0, AUDIT_SEL = 0;
 
   // ---------- helpers ----------
   var params = new URLSearchParams((location.hash.split("?")[1]) || "");
@@ -497,14 +509,14 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   window.__release = function (name) { if (gates[name]) { var r = gates[name]; delete gates[name]; window.__waitingFor = null; r(); } };
   window.__setSpeed = function (x) { SPEED = x; };
   function focusOn(id) {
-    if (current() !== "change") return;
+    if (!onChangePage()) return;
     var el = document.getElementById(id);
     if (el && !params.has("nofollow")) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms / SPEED); }); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function inr(paise) {
-    if (paise === null || paise === undefined) return "rejected";
+    if (paise === null || paise === undefined) return "turned away";
     var neg = paise < 0; paise = Math.abs(Math.round(paise));
     var r = Math.floor(paise / 100), p = String(paise % 100).padStart(2, "0"), s = String(r);
     if (s.length > 3) {
@@ -516,6 +528,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     return (neg ? "-" : "") + "₹" + s + "." + p;
   }
   function crore(paise) { return "₹" + (paise / 100 / 1e7).toFixed(1) + " crore"; }
+  function big(paise) { var r = paise / 100; return r >= 1e7 ? crore(paise) : r >= 1e5 ? "₹" + (r / 1e5).toFixed(1) + " lakh" : inr(paise); }
   function n(x) { return Number(x).toLocaleString("en-IN"); }
   function short(x) { return x >= 1e6 ? (x / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : x >= 1e3 ? Math.round(x / 1e3) + "k" : String(x); }
   function now() { return new Date(); }
@@ -558,18 +571,24 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   var ROLE = D.approver_role;                       // "payments lead"
   var S;
   function freshState() {
-    var opened = new Date(Date.now() - 6 * 60 * 1000);
+    var opened = new Date(Date.now() - (6 - 2 * CUR) * 60 * 1000);
     return {
       version: "bad",            // which code is in the change: "bad" or "fix"
       phase: "idle",             // idle | running | stopped | clear | approved
       steps: { tests: "pending", callers: "pending", money: "pending", signoff: "pending" },
       scanned: -1, replayed: 0, wrongSeen: 0, busy: false,
-      opened: opened, fixedAt: null, askedAt: null, approvedBy: null, approvedAt: null, justSigned: false, justStamped: false,
-      auditSel: 0,
+      opened: opened, fixedAt: null, askedAt: null, approvedBy: null, approvedAt: null, reason: null, justSigned: false, justStamped: false,
       audits: [], activity: [{ t: opened, who: DEV, text: "opened change #" + D.change.number + ": " + D.change.title }]
     };
   }
-  S = freshState();
+  function useChange(i) {
+    CUR = i; D.change = CHANGES[i].change; D.bad = CHANGES[i].bad; D.fix = CHANGES[i].fix; S = STATES[i];
+  }
+  CHANGES.forEach(function (c, i) { useChange(i); STATES[i] = freshState(); });
+  useChange(0);
+  function onChangePage() { return current() === D.change.route; }
+  function changeHref() { return "#/" + D.change.route; }
+  function changeOf(number) { return CHANGES.filter(function (c) { return c.change.number === number; })[0] || CHANGES[0]; }
   function V() { return D[S.version]; }
   function risky(v) { return v.money.wrong.length > 0 || v.callers.affected > 0; }
   function log(who, text) { S.activity.unshift({ t: now(), who: who, text: text }); }
@@ -589,9 +608,9 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         who_will_break: { passed: v.callers.affected === 0, callers_checked: v.callers.total,
           callers_affected: v.callers.callers.filter(function (c) { return c.affected; }).map(function (c) { return c.name; }) },
         is_the_money_right: { passed: v.money.wrong.length === 0, replayed: v.money.replayed, wrong: v.money.wrong.length,
-          rule: v.money.rules[0].check }
+          turned_away: v.money.rejected || 0, rule: v.money.rules[0].check }
       },
-      sign_off: { needed: risky(v), approver_role: ROLE, approved_by: S.approvedBy, approved_at: S.approvedAt },
+      sign_off: { needed: risky(v), approver_role: ROLE, approved_by: S.approvedBy, approved_at: S.approvedAt, reason: S.reason },
       verdict: verdict,
       merged: verdict === "merged" ? { into: D.change.base, by: DEV.name, at: t.toISOString().replace(/\.\d+/, "") } : undefined,
       note: "Countersign demo on one sample API with made-up sample data."
@@ -599,19 +618,27 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   }
 
   // ---------- router ----------
-  var routes = { overview: renderOverview, change: renderChange, audit: renderAudit, how: renderHow };
+  var routes = { overview: renderOverview, audit: renderAudit, how: renderHow };
+  CHANGES.forEach(function (c) { routes[c.change.route] = renderChange; });
+  function changeIndex(name) { for (var i = 0; i < CHANGES.length; i++) if (CHANGES[i].change.route === name) return i; return -1; }
   function current() { return (location.hash.replace(/^#\/?/, "").split("?")[0]) || "overview"; }
   function route() {
     var name = current();
     if (!routes[name]) name = "overview";
-    document.querySelectorAll("[data-nav]").forEach(function (a) { a.classList.toggle("on", a.getAttribute("data-nav") === name); });
+    var ix = changeIndex(name);
+    if (ix >= 0 && ix !== CUR) {
+      // One change is acted out at a time: don't swap while its checks are still running.
+      if (S.busy) { toast("Countersign is still working on change #" + D.change.number + "."); location.hash = changeHref(); return; }
+      useChange(ix);
+    }
+    document.querySelectorAll("[data-nav]").forEach(function (a) { a.classList.toggle("on", a.getAttribute("data-nav") === (ix >= 0 ? "change" : name)); });
     routes[name]();
     window.scrollTo(0, 0);
   }
   window.addEventListener("hashchange", route);
 
-  function statusPill() {
-    var p = S.phase;
+  function statusPill(state) {
+    var p = (state || S).phase;
     if (p === "idle") return '<span class="pill">Waiting for checks</span>';
     if (p === "running") return '<span class="pill run">Checking</span>';
     if (p === "stopped") return '<span class="pill stop">Stopped</span>';
@@ -619,7 +646,11 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     if (p === "merged") return '<span class="pill merged">Merged</span>';
     return '<span class="pill clear">All clear</span>';
   }
-  function updateNav() { document.getElementById("navCount").hidden = S.phase !== "stopped"; }
+  function updateNav() {
+    var waiting = STATES.filter(function (st) { return st.phase === "stopped"; }).length;
+    var badge = document.getElementById("navCount");
+    badge.hidden = !waiting; badge.textContent = waiting;
+  }
 
   // ---------- Overview ----------
   function greeting() {
@@ -627,29 +658,35 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   }
   function renderOverview() {
-    var bad = D.bad, p = S.phase;
-    var sub = p === "merged" ? "Change #" + D.change.number + " is merged and live. Its audit record is in the log."
-      : p === "stopped" ? "One change to the refund API is waiting for your signature."
-      : p === "approved" ? "You countersigned change #" + D.change.number + ". It's recorded in the audit log."
-      : p === "clear" ? "Rohan's fix passed every check. Nothing needs you right now."
-      : p === "running" ? "Countersign is checking Rohan's change to the refund API."
-      : "Rohan has a change to the refund API. Countersign hasn't checked it yet.";
-    var action = p === "stopped" ? "Review and sign" : "Open change";
+    var bad = CHANGES[0].bad;
+    var phases = STATES.map(function (st) { return st.phase; });
+    var count = function (p) { return phases.filter(function (x) { return x === p; }).length; };
+    var words = ["No", "One", "Two", "Three"];
+    var sub = count("stopped") ? words[count("stopped")] + (count("stopped") === 1 ? " change" : " changes") + " to the refund API " + (count("stopped") === 1 ? "is" : "are") + " waiting for your signature."
+      : count("running") ? "Countersign is checking Rohan's change to the refund API."
+      : count("idle") === phases.length ? "Rohan has " + words[phases.length].toLowerCase() + " changes to the refund API. Countersign hasn't checked them yet."
+      : count("idle") ? "Nothing needs you right now. " + words[count("idle")] + (count("idle") === 1 ? " change hasn't" : " changes haven't") + " been checked yet."
+      : "Nothing needs you right now. Every decision is in the audit log.";
+    var cards = CHANGES.map(function (c, i) {
+      var st = STATES[i], p = st.phase;
+      return '<section class="sheet attention"' + (i ? ' style="margin-top:10px"' : "") + '>' + av(DEV, "lg") +
+        '<div class="what"><b>' + esc(c.change.title) + ' <span class="muted" style="font-weight:400">#' + c.change.number + '</span></b>' +
+        '<span>' + DEV.name + ' · <span class="ref">' + esc(D.api) + '</span> · opened at ' + clock(st.opened) + '</span></div>' +
+        statusPill(st) + '<a class="btn ' + (p === "stopped" ? "primary" : "") + '" href="#/' + c.change.route + '">' + (p === "stopped" ? "Review and sign" : "Open change") + ICON.arrow + '</a></section>';
+    }).join("");
+    var latest = STATES.filter(function (st) { return st.phase === "stopped"; })[0] || STATES[0];
     view.innerHTML =
       '<div class="page-head"><div><h1>' + greeting() + ', ' + LEAD.first + '</h1><p>' + sub + '</p></div></div>' +
-      '<section class="sheet attention">' + av(DEV, "lg") +
-        '<div class="what"><b>' + esc(D.change.title) + ' <span class="muted" style="font-weight:400">#' + D.change.number + '</span></b>' +
-        '<span>' + DEV.name + ' · <span class="ref">' + esc(D.api) + '</span> · opened at ' + clock(S.opened) + '</span></div>' +
-        statusPill() + '<a class="btn ' + (p === "stopped" ? "primary" : "") + '" href="#/change">' + action + ICON.arrow + '</a></section>' +
+      cards +
       '<section class="sheet figures" style="margin-top:18px" aria-label="Key numbers">' +
         figure(n(bad.money.replayed), "refunds replayed per change", "last week, masked sample data") +
         figure(n(bad.callers.total), "apps found in gateway logs", "every app that calls " + D.api) +
-        figure(n(bad.money.wrong.length), "wrong refunds caught", "in change #" + D.change.number, true) +
+        figure(n(bad.money.wrong.length), "wrong refunds caught", "in change #" + CHANGES[0].change.number, true) +
         figure(crore(bad.money.over_refund_paise), "would have gone out wrongly", "sample data, one week", true) +
       '</section>' +
       '<div class="cols"><section class="sheet"><div class="sheet-h"><h2>Protected APIs</h2><span class="aside">1 connected in this demo</span></div>' +
         '<div class="tablewrap"><table><thead><tr><th>API</th><th>What it does</th><th class="num">Apps</th><th>Latest change</th></tr></thead><tbody>' +
-        '<tr><td><span class="ref">' + esc(D.api) + '</span></td><td>Refunds to customers</td><td class="num">8</td><td>' + statusPill() + '</td></tr>' +
+        '<tr><td><span class="ref">' + esc(D.api) + '</span></td><td>Refunds to customers</td><td class="num">8</td><td>' + statusPill(latest) + '</td></tr>' +
         '<tr><td><span class="ref">payments-api</span><span class="sample">sample</span></td><td>Taking payments</td><td class="num muted">–</td><td><span class="muted" style="font-size:13px">Not connected</span></td></tr>' +
         '<tr><td><span class="ref">payouts-api</span><span class="sample">sample</span></td><td>Paying merchants</td><td class="num muted">–</td><td><span class="muted" style="font-size:13px">Not connected</span></td></tr>' +
         '</tbody></table></div></section>' +
@@ -660,7 +697,10 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     return '<div class="figure' + (alert ? " alert" : "") + '"><div class="v">' + esc(v) + '</div><div class="l">' + esc(l) + '</div><div class="h">' + esc(h) + '</div></div>';
   }
   function feedHtml(max) {
-    return S.activity.slice(0, max || 50).map(function (a) {
+    var all = [];
+    STATES.forEach(function (st) { all = all.concat(st.activity); });
+    all.sort(function (x, y) { return y.t - x.t; });
+    return all.slice(0, max || 50).map(function (a) {
       var who = a.who ? av(a.who) : BOT.replace(" lg", "");
       var name = a.who ? a.who.first : "Countersign";
       return '<li>' + who + '<span class="t"><b>' + name + '</b> ' + esc(a.text) + '</span><time>' + clock(a.t) + '</time></li>';
@@ -676,9 +716,42 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   };
   var tabState = { bad: 0, fix: 0 };
 
+  // What is said about each change. The first one is a mistake to fix; the second is a decision to sign.
+  var WORDS = {
+    482: {
+      say: 'Making <code>amount</code> mean rupees instead of paise. It\'s simpler for the app developers. I\'ve updated the mobile app in the same change, and all the unit tests pass.',
+      stopped: function (v) { return 'Every normal test passes, but a ₹900.00 refund would send <b>' + inr(v.money.wrong[0][5]) + '</b>. ' + DEV.first + ' can fix it, or ' + LEAD.first + ', the payments lead, can sign off.'; },
+      callers: 'These two apps still send <code>amount</code> in paise, but the new code reads it as rupees.',
+      affected: function (c) { return c.affected + " of " + c.total + " apps break"; }, chip: "breaks",
+      receiptNote: '100 times too much: 90000 paise read as ₹90,000',
+      total: function (m) { return 'Together, these ' + n(m.wrong.length) + ' refunds would send <b>' + crore(m.over_refund_paise) + '</b> too much.'; },
+      approval: 'I\'ve read the replay results. I\'m approving this exact commit as the payments lead. A new commit will need my signature again.',
+      mergeNote: function (v) { return "Countersign found " + n(v.money.wrong.length) + " wrong refunds. " + DEV.first + " can fix it, or " + LEAD.first + " can sign off."; }
+    },
+    483: {
+      say: 'Finance asked for this: a refund above ₹1,00,000 should be looked at by a person before it goes out. The API now turns those away, and they go to the manual review queue. Tests pass.',
+      stopped: function (v) { return 'This change does what it means to do, and that changes real refunds: <b>' + n(v.money.wrong.length) + '</b> of last week\'s refunds, <b>' + big(v.money.not_sent_paise) + '</b> in all, would no longer go out automatically. Nothing here needs fixing. ' + LEAD.first + ', the payments lead, has to decide.'; },
+      callers: 'Only the mobile app sent refunds above the new limit last week. Every other app stays under it.',
+      affected: function (c) { return c.affected + " of " + c.total + " apps affected"; }, chip: "affected",
+      receiptNote: 'Above ₹1,00,000, so it would wait for a person',
+      total: function (m) { return 'Together, these ' + n(m.wrong.length) + ' refunds are <b>' + big(m.not_sent_paise) + '</b> that would wait for manual review.'; },
+      approval: 'I\'ve read the replay results: ' + 'seven refunds a week, about ₹10 lakh, all from the mobile app. That is what we want. I\'m approving this exact commit as the payments lead.',
+      mergeNote: function (v) { return "Countersign found " + n(v.money.wrong.length) + " refunds that would be turned away. " + LEAD.first + " has to decide."; }
+    }
+  };
+  function wrongWords(m) { return n(m.wrong.length) + (m.rejected && m.rejected === m.wrong.length ? " refunds turned away" : " refunds wrong"); }
+  function TXT() { return WORDS[D.change.number] || WORDS[482]; }
+  function switcher() {
+    if (CHANGES.length < 2) return "";
+    return '<div class="switch" role="tablist" aria-label="Changes">' + CHANGES.map(function (c, i) {
+      return '<a href="#/' + c.change.route + '" class="' + (i === CUR ? "on" : "") + '">#' + c.change.number + ' ' + esc(c.change.title.replace(/^Refund API: /, "")) + ' ' + statusPill(STATES[i]) + '</a>';
+    }).join("") + '</div>';
+  }
+
   function renderChange() {
     view.innerHTML =
       '<div class="crumbs"><a href="#/overview">Overview</a> / <a href="#/change">Changes</a> / #' + D.change.number + '</div>' +
+      '<div id="switcher">' + switcher() + '</div>' +
       '<div class="page-head" style="margin-bottom:18px"><div>' +
         '<h1>' + esc(D.change.title) + ' <span class="muted" style="font-weight:400">#' + D.change.number + '</span></h1>' +
         '<div class="meta"><span id="statusPill">' + statusPill() + '</span><span class="by">' + av(DEV) + DEV.name + ' wants to merge into <span class="ref">' + esc(D.change.base) + '</span></span>' +
@@ -689,7 +762,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         '<section class="sheet verdict" id="verdict"></section>' +
         '<div class="thread">' +
           post("tlOpen", av(DEV, "lg"), '<b>' + DEV.name + '</b> opened this change · ' + clock(S.opened),
-            '<div class="say"><p>Making <code>amount</code> mean rupees instead of paise. It\'s simpler for the app developers. I\'ve updated the mobile app in the same change, and all the unit tests pass.</p></div>' +
+            '<div class="say"><p>' + TXT().say + '</p></div>' +
             '<div id="diffBad"></div>') +
           post("tlFix", av(DEV, "lg"), '<b>' + DEV.name + '</b> pushed a fix · <span id="fixTime"></span>',
             '<div class="say"><p>Good catch. The API now takes an explicit <code>unit</code>, and paise stays the default, so the merchant dashboard and the partner app keep working. The mobile app sends <code>unit: "rupees"</code>.</p></div>' +
@@ -698,13 +771,13 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
             '<div class="checks"><div class="check" id="chkCallers"></div><div class="check" id="chkMoney"></div><div class="check" id="chkSignoff"></div></div>') +
           '<div class="event" id="tlAsk" hidden></div>' +
           post("tlApproval", av(LEAD, "lg"), '<b>' + LEAD.name + '</b> approved and countersigned · <span id="approvalTime"></span>',
-            '<div class="say"><p>I\'ve read the replay results. I\'m approving this exact commit as the payments lead. A new commit will need my signature again.</p></div>') +
+            '<div class="say"><p>' + TXT().approval + '</p><p id="approvalReason" hidden></p></div>') +
           '<div class="event merged" id="tlMerged" hidden></div>' +
         '</div>' +
       '</div><aside class="tray">' +
         '<section class="sheet"><div class="sheet-h"><h3>Presenter controls</h3></div><div class="sheet-b">' +
           '<button class="btn primary" id="bRun" type="button">Run Countersign <kbd>R</kbd></button>' +
-          '<button class="btn" id="bFix" type="button">Rohan pushes a fix <kbd>F</kbd></button>' +
+          '<button class="btn" id="bFix" type="button"' + (D.fix ? "" : " hidden") + '>Rohan pushes a fix <kbd>F</kbd></button>' +
           '<button class="btn" id="bApprove" type="button">Ananya approves <kbd>A</kbd></button>' +
           '<button class="btn" id="bReset" type="button">Start again <kbd>0</kbd></button>' +
           '<small>These act out what happens on GitHub, using results from a real run of the checks. Press <b>M</b> to merge.</small>' +
@@ -719,7 +792,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     document.getElementById("bApprove").onclick = function () { approve(); };
     document.getElementById("bReset").onclick = function () { resetDemo(); };
     document.getElementById("bMerge").onclick = function () { merge(); };
-    renderDiff("bad"); renderDiff("fix");
+    renderDiff("bad"); if (D.fix) renderDiff("fix");
     paint();
   }
   function post(id, avatar, head, body) {
@@ -729,7 +802,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   function renderDiff(which) {
     var el = document.getElementById(which === "bad" ? "diffBad" : "diffFix");
     if (!el) return;
-    var v = D[which], ix = tabState[which];
+    var v = D[which], ix = Math.min(tabState[which], v.diff.length - 1);
     var tabs = v.diff.map(function (f, i) {
       return '<button type="button" data-tab="' + i + '" class="' + (i === ix ? "on" : "") + '">' + esc(f.path.split("/").pop()) +
         ' <span class="plus">+' + f.added + '</span> <span class="minus">−' + f.removed + '</span></button>';
@@ -746,17 +819,18 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
 
   // Draws everything on the change page that depends on the state.
   function paint() {
-    if (current() !== "change" || !document.getElementById("stepper")) { updateNav(); return; }
+    if (!onChangePage() || !document.getElementById("stepper")) { updateNav(); return; }
     var v = V(), st = S.steps;
     document.getElementById("statusPill").innerHTML = statusPill();
+    document.getElementById("switcher").innerHTML = switcher();
     document.getElementById("commitId").textContent = v.commit;
 
     document.getElementById("stepper").innerHTML = ["tests", "callers", "money", "signoff"].map(function (k, i) {
       var s = st[k], icon = ICON[s] || (s === "running" ? "" : String(i + 1));
       var sub = STEP_INFO[k][1];
       if (k === "tests" && s === "pass") sub = v.tests + " of " + v.tests + " passed";
-      if (k === "callers" && (s === "warn" || s === "pass")) sub = v.callers.affected ? v.callers.affected + " of " + v.callers.total + " apps break" : "No apps break";
-      if (k === "money" && (s === "fail" || s === "pass")) sub = v.money.wrong.length ? n(v.money.wrong.length) + " refunds wrong" : "All refunds correct";
+      if (k === "callers" && (s === "warn" || s === "pass")) sub = v.callers.affected ? TXT().affected(v.callers) : "No apps break";
+      if (k === "money" && (s === "fail" || s === "pass")) sub = v.money.wrong.length ? wrongWords(v.money) : "All refunds correct";
       if (k === "signoff" && s === "fail") sub = "Waiting for " + LEAD.first;
       if (k === "signoff" && s === "pass") sub = signedOff() ? "Signed by " + LEAD.first : "Not needed";
       return '<div class="step ' + (s === "pending" ? "" : s) + '"><div class="ico">' + icon + '</div><div class="txt"><b>' + STEP_INFO[k][0] + '</b><span>' + esc(sub) + '</span></div></div>';
@@ -766,16 +840,19 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     b.className = "sheet verdict";
     if (S.phase === "idle") b.innerHTML = '<div><h2>Ready to check</h2><p>' + DEV.first + '\'s change touches <span class="ref">' + esc(D.api) + '</span>, so Countersign has to check it before it can go live. Press <b>Run Countersign</b>.</p></div>';
     else if (S.phase === "running") b.innerHTML = '<div class="spinner" aria-hidden="true"></div><div><h2>Countersign is checking this change</h2><p>It runs inside the company\'s own CI. The code and the payment data never leave.</p></div>';
-    else if (S.phase === "stopped") { b.classList.add("stop"); b.innerHTML = '<div class="stamp' + stamp + '">Stopped</div><div><h2>This change can\'t go live yet</h2><p>Every normal test passes, but a ₹900.00 refund would send <b>' + inr(v.money.wrong[0][5]) + '</b>. ' + DEV.first + ' can fix it, or ' + LEAD.first + ', the payments lead, can sign off.</p></div>'; }
+    else if (S.phase === "stopped") { b.classList.add("stop"); b.innerHTML = '<div class="stamp' + stamp + '">Stopped</div><div><h2>This change can\'t go live yet</h2><p>' + TXT().stopped(v) + '</p></div>'; }
     else if (S.phase === "merged") { b.classList.add("merged"); b.innerHTML = mergeGraph(S.justMerged, v.commit) + '<div><div class="live">Live</div><h2>Merged into main</h2><p>' +
         (S.mergedFrom === "approved" ? "Merged with " + LEAD.first + "'s countersignature on commit " + esc(v.commit) + ". The approval and every check result are in the audit log."
           : "Every check passed, so refunds now go out through " + DEV.first + "'s fixed code (commit " + esc(v.commit) + "). The record is in the audit log.") + '</p></div>'; S.justMerged = false; }
-    else if (S.phase === "approved") { b.classList.add("signed"); b.innerHTML = '<div class="stamp signed' + stamp + '">Countersigned</div><div><h2>' + LEAD.name + ' signed off on this commit</h2><p>The risk was accepted by a named person, on this exact version of the code. It\'s in the audit log.</p></div>'; }
+    else if (S.phase === "approved") { b.classList.add("signed"); b.innerHTML = '<div class="stamp signed' + stamp + '">Countersigned</div><div><h2>' + LEAD.name + ' signed off on this commit</h2><p>The risk was accepted by a named person, on this exact version of the code' + (S.reason ? ', with her reason written down' : '') + '. It\'s in the audit log.</p></div>'; }
     else { b.classList.add("clear"); b.innerHTML = '<div class="stamp clear' + stamp + '">All clear</div><div><h2>Safe to go live</h2><p>Every app keeps working, and every one of last week\'s ' + n(v.money.replayed) + ' refunds comes out right.</p></div>'; }
     S.justStamped = false;
 
     document.getElementById("tlFix").hidden = S.version !== "fix";
-    if (S.fixedAt) document.getElementById("fixTime").textContent = clock(S.fixedAt) + " · commit " + D.fix.commit;
+    if (S.fixedAt && D.fix) document.getElementById("fixTime").textContent = clock(S.fixedAt) + " · commit " + D.fix.commit;
+    var why = document.getElementById("approvalReason");
+    why.hidden = !S.reason;
+    if (S.reason) why.innerHTML = '<b>Reason for the record:</b> “' + esc(S.reason) + '”';
     document.getElementById("checksHead").textContent =
       S.phase === "idle" ? "is waiting to check commit " + v.commit
       : S.phase === "running" ? "is checking commit " + v.commit
@@ -793,7 +870,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
 
     var busy = S.busy;
     document.getElementById("bRun").disabled = busy || S.phase !== "idle";
-    document.getElementById("bFix").disabled = busy || S.phase !== "stopped";
+    document.getElementById("bFix").disabled = busy || S.phase !== "stopped" || !D.fix;
     document.getElementById("bApprove").disabled = busy || S.phase !== "stopped";
     document.getElementById("bReset").disabled = busy;
     paintMerge(v);
@@ -806,7 +883,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         '<code>' + esc(last.audit_id) + '</code>' +
         (last.sign_off.approved_by ? '<div><div class="signature">' + LEAD.name + '</div><div class="sigline">' + LEAD.name + ', ' + LEAD.role.toLowerCase() + '</div></div>' : "") +
         '<a href="#/audit" data-open-audit>Open the full record ' + ICON.arrow + '</a>';
-      mini.querySelector("[data-open-audit]").onclick = function () { S.auditSel = 0; };
+      mini.querySelector("[data-open-audit]").onclick = function () { AUDIT_SEL = Math.max(0, allAudits().indexOf(last)); };
     }
     document.getElementById("auditCount").textContent = S.audits.length ? S.audits.length + " saved" : "";
     updateNav();
@@ -835,7 +912,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     else if (canMerge()) { btn.className = "btn merge-btn ready"; btn.innerHTML = '<span>Merge into main</span>'; note.textContent = "Everything required has passed."; }
     else {
       btn.className = "btn merge-btn locked"; btn.innerHTML = '<span>' + ICON.lock + '</span><span>' + (p === "stopped" ? "Merge blocked" : "Waiting for checks") + '</span>';
-      note.textContent = p === "stopped" ? "Countersign found " + n(v.money.wrong.length) + " wrong refunds. " + DEV.first + " can fix it, or " + LEAD.first + " can sign off."
+      note.textContent = p === "stopped" ? TXT().mergeNote(v)
         : p === "running" ? "Countersign is still checking." : "Countersign has to check this change first.";
     }
     btn.setAttribute("aria-disabled", String(!canMerge()));
@@ -851,7 +928,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   }
   async function merge() {
     if (S.busy || S.phase === "merged") return;
-    if (current() !== "change") { location.hash = "#/change"; return; }
+    if (!onChangePage()) { location.hash = changeHref(); return; }
     if (!canMerge()) {
       var box = document.getElementById("mergeBox"), note = document.getElementById("mergeNote");
       box.classList.remove("shake"); void box.offsetWidth; box.classList.add("shake");
@@ -865,7 +942,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     ["bRun", "bFix", "bApprove", "bReset"].forEach(function (id) { document.getElementById(id).disabled = true; });
     await sleep(1300);
     S.phase = "merged"; S.mergedAt = now(); S.justMerged = true; S.justStamped = false;
-    S.auditSel = 0; S.audits.unshift(makeAudit("merged"));
+    AUDIT_SEL = 0; S.audits.unshift(makeAudit("merged"));
     log(DEV, "merged #" + D.change.number + " into main (commit " + V().commit + ")");
     S.busy = false; paint(); focusOn("verdict");
     toast("Merged into main. It's live.");
@@ -882,9 +959,9 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     var el = document.getElementById("chkCallers"), v = V(), s = S.steps.callers;
     if (!el) return;
     var callers = v.callers.callers, done = s === "warn" || s === "pass";
-    var answer = done ? '<div class="answer ' + (v.callers.affected ? "caution" : "clear") + '">' + (v.callers.affected ? v.callers.affected + " of " + v.callers.total + " apps break" : "No apps break") + '</div>' : "";
+    var answer = done ? '<div class="answer ' + (v.callers.affected ? "caution" : "clear") + '">' + (v.callers.affected ? TXT().affected(v.callers) : "No apps break") + '</div>' : "";
     if (s === "pending") {
-      checkShell(el, "callers", 1, "", '<p class="explain">Countersign compares the old and new API, then reads the company\'s gateway logs to see which apps send the field that changed.</p>');
+      checkShell(el, "callers", 1, "", '<p class="explain">Countersign compares the old and new API, then works out what each app really sends: from the requests recorded in the company\'s gateway logs, or from the app\'s own code when it lives in this repo.</p>');
       return;
     }
     var W = 600, H = 330, cx = W / 2, cy = H / 2, rx = 205, ry = 125;
@@ -902,15 +979,21 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     svg += '</svg>';
     var list = callers.map(function (c, i) {
       var seen = done || i <= S.scanned;
-      return '<li class="' + (seen && c.affected ? "broke" : "") + '"><span class="nm">' + esc(c.name) + '</span>' + (seen && c.affected ? '<span class="chip stop">breaks</span>' : "") +
+      return '<li class="' + (seen && c.affected ? "broke" : "") + '"><span class="nm">' + esc(c.name) + '</span>' + (seen && c.affected ? '<span class="chip stop">' + TXT().chip + '</span>' : "") +
         '<span class="why">' + (seen ? esc(c.reason) + " · " + short(c.calls_per_day) + "/day" : "checking…") + '</span></li>';
     }).join("");
     var lead = !done ? "" : v.callers.affected
-      ? '<p class="explain">These two apps still send <code>amount</code> in paise, but the new code reads it as rupees.</p>'
+      ? '<p class="explain">' + TXT().callers + '</p>'
       : '<p class="explain">Every app sends <code>amount</code> in the unit the API now expects.</p>';
     var fc = v.callers.format_check || {};
-    var fmt = done && fc.tool ? '<div class="fmt"><span class="chip clear">format check passed</span><span>The standard API checker (oasdiff) found nothing wrong. A number is still a number. Only its meaning changed.</span></div>' : "";
-    checkShell(el, "callers", 1, answer, lead + '<div class="callers"><div>' + svg + '</div><ul class="callist">' + list + '</ul></div>' + fmt);
+    var fmt = !(done && fc.tool) ? ""
+      : fc.breaking ? '<div class="fmt"><span class="chip stop">format check: ' + fc.breaking + ' breaking</span><span>The standard API checker (oasdiff) flags this one too: a new maximum is a format change. It can\'t say which apps hit it, or how much money. The replay below can.</span></div>'
+      : v.callers.changed_fields && v.callers.changed_fields.length ? '<div class="fmt"><span class="chip clear">format check passed</span><span>The standard API checker (oasdiff) found nothing wrong. A number is still a number. Only its meaning changed.</span></div>'
+      : '<div class="fmt"><span class="chip clear">format check passed</span><span>The standard API checker (oasdiff) found nothing wrong.</span></div>';
+    var known = callers.filter(function (c) { return c.evidence; });
+    var proof = done && known.length ? '<div class="proof"><b>How Countersign knows what each app sends.</b> Nobody labels it. ' +
+      known.map(function (c) { return esc(c.name) + ': ' + esc(c.evidence); }).join(' · ') + '.</div>' : "";
+    checkShell(el, "callers", 1, answer, lead + '<div class="callers"><div>' + svg + '</div><ul class="callist">' + list + '</ul></div>' + proof + fmt);
   }
   function nodeClass(c, i, s) {
     if (s === "pending") return "";
@@ -928,27 +1011,32 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     }
     var total = m.replayed, done = s === "fail" || s === "pass";
     var replayed = done ? total : S.replayed, wrongSeen = done ? m.wrong.length : S.wrongSeen;
-    var answer = done ? '<div class="answer ' + (m.wrong.length ? "stop" : "clear") + '">' + (m.wrong.length ? n(m.wrong.length) + " refunds wrong" : "All correct") + '</div>' : "";
+    var answer = done ? '<div class="answer ' + (m.wrong.length ? "stop" : "clear") + '">' + (m.wrong.length ? wrongWords(m) : "All correct") + '</div>' : "";
     var body =
       '<div class="counters">' +
         '<div class="counter"><div class="n" id="cReplayed">' + n(replayed) + '</div><div class="l">of ' + n(total) + ' replayed</div></div>' +
         '<div class="counter clear"><div class="n" id="cOk">' + n(replayed - wrongSeen) + '</div><div class="l">came out right</div></div>' +
-        '<div class="counter ' + (wrongSeen ? "stop" : "") + '"><div class="n" id="cBad">' + n(wrongSeen) + '</div><div class="l">came out wrong</div></div>' +
+        '<div class="counter ' + (wrongSeen ? "stop" : "") + '"><div class="n" id="cBad">' + n(wrongSeen) + '</div><div class="l">' + (m.rejected && m.rejected === m.wrong.length ? "would be turned away" : "came out wrong") + '</div></div>' +
       '</div>' +
       '<div class="bar" aria-hidden="true"><div class="ok" id="barOk" style="width:' + ((replayed - wrongSeen) / total * 100) + '%"></div><div class="ko" id="barKo" style="width:' + (wrongSeen / total * 100) + '%"></div></div>' +
-      '<div class="rule">Money rule <code>' + esc(m.rules[0].check) + '</code><span>' + esc(m.rules[0].message) + '</span>' +
-        (done ? (m.wrong.length ? '<span class="chip stop">broken</span>' : '<span class="chip clear">holds</span>') : "") + '</div>';
+      m.rules.map(function (r) {
+        var broke = r.broken === undefined ? m.wrong.length : r.broken;
+        return '<div class="rule">Money rule <code>' + esc(r.check) + '</code><span>' + esc(r.message) + '</span>' +
+          (done ? (broke ? '<span class="chip stop">broken</span>' : '<span class="chip clear">holds</span>') : "") + '</div>';
+      }).join("") +
+      (m.rejected ? '<div class="rule">Always checked <code>no refund lost</code><span>a refund that went out before must still go out</span>' +
+        (done ? '<span class="chip stop">broken</span>' : "") + '</div>' : "");
     if (m.wrong.length && wrongSeen) {
-      var ex = m.wrong[0];
-      body += '<div class="receipt"><div><div class="lbl">Customer paid</div><div class="amt">' + inr(ex[3]) + '</div></div><div class="arrow">→</div>' +
-        '<div><div class="lbl">This change refunds</div><div class="amt over">' + inr(ex[5]) + '</div></div>' +
-        '<div class="note">Order <code>' + esc(ex[1]) + '</code> · ' + esc(ex[2]) + '<br>100 times too much: 90000 paise read as ₹90,000</div></div>';
+      var ex = m.wrong[0], lost = ex[5] === null;
+      body += '<div class="receipt"><div><div class="lbl">' + (lost ? "Last week this refund went out" : "Customer paid") + '</div><div class="amt">' + inr(lost ? ex[4] : ex[3]) + '</div></div><div class="arrow">→</div>' +
+        '<div><div class="lbl">' + (lost ? "With this change" : "This change refunds") + '</div><div class="amt over">' + (lost ? "Turned away" : inr(ex[5])) + '</div></div>' +
+        '<div class="note">Order <code>' + esc(ex[1]) + '</code> · ' + esc(ex[2]) + '<br>' + TXT().receiptNote + '</div></div>';
       var shown = m.wrong.slice(0, Math.min(5, wrongSeen));
       body += '<div class="tablewrap rows"><table><thead><tr><th>Order</th><th>App</th><th class="num">Paid</th><th class="num">Old code sent</th><th class="num">This change sends</th></tr></thead><tbody>' +
         shown.map(function (w) {
           return '<tr><td><code>' + esc(w[1]) + '</code></td><td>' + esc(w[2]) + '</td><td class="num">' + inr(w[3]) + '</td><td class="num">' + inr(w[4]) + '</td><td class="num over">' + inr(w[5]) + '</td></tr>';
         }).join("") + '</tbody></table></div>' +
-        (done && m.wrong.length > 5 ? '<p class="explain muted" style="font-size:13px">And ' + n(m.wrong.length - 5) + ' more. Order numbers are masked, and all of it is sample data.</p>' : "");
+        (done && m.wrong.length > 5 ? '<p class="explain muted" style="font-size:13px">And ' + n(m.wrong.length - 5) + ' more. ' + TXT().total(m) + ' Order numbers are masked, and all of it is sample data.</p>' : "");
     }
     checkShell(el, "money", 2, answer, body);
   }
@@ -965,7 +1053,8 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     else if (signedOff()) {
       body = '<div class="signoff"><div class="person">' + av(LEAD, "lg") + '<div><b>' + LEAD.name + '</b><span>' + LEAD.role + '</span></div></div>' +
         '<div><div class="signature' + (S.justSigned ? " write" : "") + '" aria-label="Signature of ' + LEAD.name + '">' + LEAD.name + '</div>' +
-        '<div class="sigline">' + longDate(new Date(S.approvedAt)) + ' · commit ' + esc(v.commit) + '</div></div></div>';
+        '<div class="sigline">' + longDate(new Date(S.approvedAt)) + ' · commit ' + esc(v.commit) + '</div></div></div>' +
+        (S.reason ? '<p class="explain reason"><b>Her reason, kept with the signature:</b> “' + esc(S.reason) + '”</p>' : "");
       S.justSigned = false;
     }
     else if (s === "fail") body = '<div class="signoff"><div class="person">' + av(LEAD, "lg") + '<div><b>' + LEAD.name + '</b><span>' + LEAD.role + ' · asked to review. Merging is blocked until she signs.</span></div></div></div>';
@@ -978,7 +1067,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     if (S.busy || S.phase !== "idle") return;
     S.busy = true; S.phase = "running";
     var v = V();
-    if (current() !== "change") location.hash = "#/change";
+    if (!onChangePage()) location.hash = changeHref();
     log(null, "started checking commit " + v.commit);
     paint(); focusOn("verdict");
 
@@ -1000,12 +1089,12 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     S.justStamped = true;
     if (risky(v)) {
       S.steps.signoff = "fail"; S.phase = "stopped"; S.askedAt = now();
-      S.auditSel = 0; S.audits.unshift(makeAudit("stopped"));
-      log(null, "stopped #" + D.change.number + ": " + n(v.money.wrong.length) + " refunds wrong, " + v.callers.affected + " apps break");
+      AUDIT_SEL = 0; S.audits.unshift(makeAudit("stopped"));
+      log(null, "stopped #" + D.change.number + ": " + wrongWords(v.money) + ", " + v.callers.affected + (v.callers.affected === 1 ? " app affected" : " apps break"));
       log(null, "asked Ananya (payments lead) to review");
     } else {
       S.steps.signoff = "pass"; S.phase = "clear";
-      S.auditSel = 0; S.audits.unshift(makeAudit("all clear"));
+      AUDIT_SEL = 0; S.audits.unshift(makeAudit("all clear"));
       log(null, "found nothing wrong with commit " + v.commit + ". All clear.");
     }
     S.busy = false; paint();
@@ -1041,7 +1130,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   }
 
   async function pushFix() {
-    if (S.busy || S.phase !== "stopped") return;
+    if (S.busy || S.phase !== "stopped" || !D.fix) return;
     S.fixedAt = now();
     log(DEV, "pushed a fix: " + D.fix.title);
     S.version = "fix"; S.phase = "idle"; S.approvedBy = null; S.approvedAt = null;
@@ -1057,8 +1146,9 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     S.busy = true;
     S.steps.signoff = "running"; paint(); focusOn("chkSignoff"); await sleep(1000);
     S.approvedBy = LEAD.name + " (" + ROLE + ")"; S.approvedAt = now().toISOString().replace(/\.\d+/, "");
+    S.reason = D.change.reason || null;
     S.steps.signoff = "pass"; S.phase = "approved"; S.justSigned = true; S.justStamped = true;
-    S.auditSel = 0; S.audits.unshift(makeAudit("approved"));
+    AUDIT_SEL = 0; S.audits.unshift(makeAudit("approved"));
     log(LEAD, "approved and countersigned #" + D.change.number + " (commit " + V().commit + ")");
     S.busy = false; paint();
     await sleep(2600); focusOn("verdict");
@@ -1067,39 +1157,47 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   function resetDemo() {
     if (S.busy) return;
     var audits = S.audits;
-    S = freshState(); S.audits = audits; S.auditSel = 0; tabState = { bad: 0, fix: 0 };
-    if (current() === "change") renderChange(); else route();
+    S = STATES[CUR] = freshState(); S.audits = audits; AUDIT_SEL = 0; tabState = { bad: 0, fix: 0 };
+    if (onChangePage()) renderChange(); else route();
     toast("Starting again. Change #" + D.change.number + " is waiting to be checked.");
   }
 
   // ---------- Audit log ----------
   var VERDICT = { "stopped": ["Stopped", "stop"], "all clear": ["All clear", "clear"], "approved": ["Countersigned", "signed"], "merged": ["Merged", "merged"] };
   function verdictLabel(a) { return VERDICT[a.verdict] || [a.verdict, ""]; }
-  function versionOf(a) { return a.commit === D.fix.commit ? D.fix : D.bad; }
+  function versionOf(a) { var c = changeOf(a.pull_request); return c.fix && a.commit === c.fix.commit ? c.fix : c.bad; }
+  // Every change's records together, newest first.
+  function allAudits() {
+    var all = [];
+    STATES.forEach(function (st) { all = all.concat(st.audits); });
+    return all.sort(function (x, y) { return x.created_at < y.created_at ? 1 : x.created_at > y.created_at ? -1 : 0; });
+  }
 
   function renderAudit() {
-    var list = S.audits.map(function (a, i) {
+    var audits = allAudits();
+    AUDIT_SEL = Math.min(AUDIT_SEL, Math.max(0, audits.length - 1));
+    var list = audits.map(function (a, i) {
       var vl = verdictLabel(a);
-      return '<li><button type="button" data-rec="' + i + '" class="' + (i === S.auditSel ? "on" : "") + '">' +
+      return '<li><button type="button" data-rec="' + i + '" class="' + (i === AUDIT_SEL ? "on" : "") + '">' +
         '<span class="r1"><span>' + (a.verdict === "merged" ? "Merged into main" : a.verdict === "approved" ? "Signed by " + LEAD.first : a.verdict === "stopped" ? "Change stopped" : "Checks passed") + '</span><span class="pill ' + vl[1] + '">' + vl[0] + '</span></span>' +
-        '<span class="r2">' + clock(new Date(a.created_at)) + ' · commit ' + esc(a.commit) + '</span></button></li>';
+        '<span class="r2">' + clock(new Date(a.created_at)) + ' · #' + a.pull_request + ' · commit ' + esc(a.commit) + '</span></button></li>';
     }).join("");
     view.innerHTML =
       '<div class="page-head"><div><h1>Audit log</h1><p>Every decision Countersign makes is written down: what it checked, what it found, who signed, and when.</p></div></div>' +
-      (S.audits.length
-        ? '<div class="audit-layout"><section class="sheet"><div class="sheet-h"><h2>Records</h2><span class="aside">' + S.audits.length + '</span></div><ul class="reclist">' + list + '</ul></section>' +
+      (audits.length
+        ? '<div class="audit-layout"><section class="sheet"><div class="sheet-h"><h2>Records</h2><span class="aside">' + audits.length + '</span></div><ul class="reclist">' + list + '</ul></section>' +
           '<div id="auditDoc" style="min-width:0"></div></div>'
-        : '<section class="sheet sheet-b muted">No records yet. Open <a href="#/change">change #' + D.change.number + '</a> and run Countersign. Each decision it makes appears here as a signed record.</section>') +
+        : '<section class="sheet sheet-b muted">No records yet. Open <a href="#/change">change #' + CHANGES[0].change.number + '</a> and run Countersign. Each decision it makes appears here as a signed record.</section>') +
       '<p class="muted" style="font-size:13.5px;margin-top:14px">On GitHub, each record is also saved as a file on the workflow run and linked from the pull request.</p>';
     view.querySelectorAll("[data-rec]").forEach(function (b) {
-      b.onclick = function () { S.auditSel = +b.getAttribute("data-rec"); renderAudit(); if (window.innerWidth < 880) document.getElementById("auditDoc").scrollIntoView({ behavior: "smooth" }); };
+      b.onclick = function () { AUDIT_SEL = +b.getAttribute("data-rec"); renderAudit(); if (window.innerWidth < 880) document.getElementById("auditDoc").scrollIntoView({ behavior: "smooth" }); };
     });
-    if (S.audits.length) document.getElementById("auditDoc").innerHTML = auditDoc(S.audits[Math.min(S.auditSel, S.audits.length - 1)]);
+    if (audits.length) document.getElementById("auditDoc").innerHTML = auditDoc(audits[AUDIT_SEL]);
     updateNav();
   }
 
   function auditDoc(a) {
-    var v = versionOf(a), m = v.money, c = v.callers, vl = verdictLabel(a), at = new Date(a.created_at);
+    var C = changeOf(a.pull_request), v = versionOf(a), m = v.money, c = v.callers, vl = verdictLabel(a), at = new Date(a.created_at);
     var broken = c.callers.filter(function (x) { return x.affected; });
     var so = a.sign_off, signed = !!so.approved_by;
     var stampCls = vl[1] === "stop" ? "" : vl[1] === "clear" ? " clear" : " signed";
@@ -1109,19 +1207,20 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
       '<p>All ' + v.tests + ' of the team\'s own unit tests passed on commit <span class="ref">' + esc(a.commit) + '</span>.</p>');
 
     var s2body = '<p>Countersign compared the old and new API, and read the gateway logs for the ' + c.total + ' apps that call <span class="ref">' + esc(a.api) + '</span>.</p>';
-    if (broken.length) s2body += '<p>' + broken.length + ' of them will break:</p><ul>' + broken.map(function (x) {
+    if (broken.length) s2body += '<p>' + broken.length + (m.rejected ? ' of them is affected:' : ' of them will break:') + '</p><ul>' + broken.map(function (x) {
       return '<li><b>' + esc(x.name) + '</b> (' + short(x.calls_per_day) + ' calls a day): ' + esc(x.reason) + '.</li>'; }).join("") + '</ul>';
     else s2body += '<p>None of them break. Every app sends <code>amount</code> in the unit the API expects.</p>';
-    if (fc.tool) s2body += '<p class="muted" style="font-size:13px">Format check (oasdiff): ' + (fc.breaking === 0 ? "no breaking changes found" : fc.breaking + " breaking changes") + '.</p>';
-    var s2 = docSection(2, "Who will break?", broken.length ? '<span class="res warn">' + broken.length + ' of ' + c.total + ' apps break</span>' : '<span class="res ok">No apps break</span>', s2body);
+    if (fc.tool) s2body += '<p class="muted" style="font-size:13px">Format check (oasdiff): ' + (fc.breaking === 0 ? "no breaking changes found" : fc.breaking + (fc.breaking === 1 ? " breaking change" : " breaking changes")) + '.</p>';
+    var s2 = docSection(2, "Who will break?", broken.length ? '<span class="res warn">' + broken.length + ' of ' + c.total + (m.rejected ? ' apps affected' : ' apps break') + '</span>' : '<span class="res ok">No apps break</span>', s2body);
 
     var s3body = '<p>Replayed ' + n(m.replayed) + ' refunds from last week (a masked copy, sample data) through the old code and this change, against the rule <code>' + esc(m.rules[0].check) + '</code>: ' + esc(m.rules[0].message) + '.</p>';
     if (m.wrong.length) {
-      s3body += '<p>' + n(m.wrong.length) + ' refunds broke the rule. The first three:</p><div class="tablewrap"><table><thead><tr><th>Order</th><th>App</th><th class="num">Paid</th><th class="num">This change sends</th></tr></thead><tbody>' +
+      s3body += '<p>' + (m.rejected ? n(m.rejected) + ' refunds that went out last week (' + big(m.not_sent_paise) + ' in all) would now be turned away. The first three:'
+        : n(m.wrong.length) + ' refunds broke the rule, sending ' + big(m.over_refund_paise) + ' too much in all. The first three:') + '</p><div class="tablewrap"><table><thead><tr><th>Order</th><th>App</th><th class="num">Paid</th><th class="num">This change sends</th></tr></thead><tbody>' +
         m.wrong.slice(0, 3).map(function (w) { return '<tr><td><code>' + esc(w[1]) + '</code></td><td>' + esc(w[2]) + '</td><td class="num">' + inr(w[3]) + '</td><td class="num over">' + inr(w[5]) + '</td></tr>'; }).join("") +
         '</tbody></table></div>';
     } else s3body += '<p>Every one came out right.</p>';
-    var s3 = docSection(3, "Is the money right?", m.wrong.length ? '<span class="res no">' + n(m.wrong.length) + ' wrong</span>' : '<span class="res ok">All correct</span>', s3body);
+    var s3 = docSection(3, "Is the money right?", m.wrong.length ? '<span class="res no">' + n(m.wrong.length) + (m.rejected === m.wrong.length ? ' turned away' : ' wrong') + '</span>' : '<span class="res ok">All correct</span>', s3body);
 
     var s4body;
     if (!so.needed) s4body = '<p>No signature was needed: nothing risky was found.</p>';
@@ -1129,6 +1228,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
       var sAt = new Date(so.approved_at);
       s4body = '<p>This change was risky, so it needed the ' + esc(so.approver_role) + '\'s approval.</p>' +
         '<div class="sig"><p class="sig-statement">I have read the results above and approve commit <span class="ref">' + esc(a.commit) + '</span> of change #' + a.pull_request + '. This approval is for this commit only.</p>' +
+        (so.reason ? '<p class="sig-statement" style="margin-top:8px"><b>Reason:</b> “' + esc(so.reason) + '”</p>' : "") +
         '<div class="sig-block"><div class="signature" aria-label="Signature of ' + LEAD.name + '">' + LEAD.name + '</div>' +
         '<div class="sigline"><b>' + LEAD.name + '</b>, ' + LEAD.role.toLowerCase() + '<br>' + longDate(sAt) + '</div></div></div>';
     } else {
@@ -1148,12 +1248,12 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
       '<header class="doc-h"><div class="lh"><svg class="logo-mark" height="36" viewBox="448 270 361 574" aria-hidden="true"><path d="M622.00 274.25c-0.50 0.75 -0.50 0.50 -0.50 25.00 0.00 20.00 -0.25 22.00 -1.25 25.25 0.00 0.75 -0.25 1.75 -0.25 2.00 0.00 0.25 -0.25 1.00 -0.25 1.25 -0.25 0.25 -0.75 1.25 -1.00 2.25 -0.50 1.75 -2.00 5.00 -2.25 5.50 -0.25 0.25 -0.25 0.75 -0.50 1.00 -0.25 0.25 -0.50 0.75 -0.75 1.25 -0.25 0.25 -1.00 1.50 -1.50 2.25 -2.25 3.50 -3.00 4.50 -5.00 6.50 -1.75 2.00 -7.25 6.75 -7.75 6.75 0.00 -0.00 -0.50 0.25 -0.75 0.50 -0.50 0.50 -2.00 1.50 -6.00 3.50 -4.00 2.00 -7.25 3.25 -12.25 4.25 -1.75 0.25 -5.50 0.25 -22.50 0.50 -21.00 0.25 -23.00 0.25 -28.25 1.25 -1.00 0.25 -2.50 0.50 -3.50 0.75 -5.00 1.00 -14.00 3.75 -18.00 5.75 -0.75 0.25 -2.00 1.00 -3.00 1.25 -1.25 0.50 -2.25 1.00 -2.50 1.25 -0.25 0.25 -0.75 0.50 -1.25 0.50 -1.25 0.75 -8.25 5.00 -10.50 6.50 -10.00 7.00 -18.50 15.75 -24.50 25.25 -1.00 1.25 -2.00 2.75 -2.25 3.25 -1.50 2.25 -6.50 12.50 -7.50 15.25 -0.25 0.75 -0.75 2.00 -1.00 2.75 -0.75 2.50 -2.25 7.25 -2.75 10.25 -0.50 1.75 -1.00 3.50 -1.00 4.00 0.00 0.50 -0.50 2.25 -0.75 4.00 0.00 1.75 -0.50 3.50 -0.50 4.00 -0.25 1.75 -0.25 71.25 0.25 72.00 0.00 0.25 0.50 2.00 0.75 3.50 0.25 3.25 1.50 8.50 2.00 10.25 0.25 0.75 0.75 1.75 1.00 2.50 0.00 1.00 0.50 1.75 0.50 1.75 0.00 0.25 0.25 1.00 0.50 1.50 1.00 3.00 1.75 5.00 4.25 10.00 1.50 2.75 3.00 5.25 3.00 5.50 0.25 0.25 0.75 0.75 1.00 1.25 1.00 2.25 6.75 10.00 8.75 12.00 7.25 7.75 13.50 13.00 19.00 16.50 1.00 0.75 2.25 1.50 2.50 1.75 0.50 0.25 0.75 0.50 0.75 0.50 0.25 -0.00 1.50 0.75 3.00 1.50 2.50 1.50 7.75 4.00 10.50 5.25 3.00 1.25 6.25 2.25 14.25 4.50 1.50 0.50 3.00 1.00 3.50 1.25 0.50 0.25 1.25 0.50 1.25 0.50 0.50 -0.00 2.00 0.75 4.00 1.75 0.25 0.25 1.00 0.50 1.50 0.75 1.25 0.75 5.75 3.50 7.25 4.75 4.25 3.50 9.25 9.25 11.75 13.75 0.25 0.50 0.75 1.50 1.25 2.25 1.50 2.75 2.75 6.25 3.75 11.00 0.50 2.50 0.50 3.25 0.75 18.75 0.25 16.50 0.25 17.25 1.00 17.75 0.25 0.25 12.75 0.25 27.75 0.25 27.50 -0.00 27.50 -0.00 28.50 -0.50 0.25 -0.25 0.75 -0.75 1.00 -1.25 0.25 -1.25 0.25 -117.00 -0.25 -119.00 -0.50 -2.75 -2.25 -6.25 -4.50 -8.50 -2.25 -2.50 -4.25 -3.75 -7.50 -5.00 -4.25 -1.50 -11.75 -5.50 -13.25 -7.00 -0.25 -0.25 -0.75 -0.50 -0.75 -0.50 -0.25 -0.00 -0.50 -0.25 -1.00 -0.50 -0.25 -0.25 -0.75 -0.75 -1.00 -0.75 -2.75 -1.75 -10.50 -9.00 -13.00 -12.25 -1.00 -1.25 -2.00 -2.50 -2.25 -3.00 -0.50 -0.50 -1.00 -1.25 -1.25 -1.75 -0.50 -0.25 -1.25 -1.50 -1.75 -2.50 -2.00 -3.00 -2.50 -4.00 -4.00 -7.25 -2.25 -4.25 -2.50 -5.00 -3.50 -8.00 -1.50 -5.25 -2.50 -9.75 -3.25 -15.75 -1.00 -9.25 0.75 -22.25 4.25 -31.25 1.00 -2.00 2.50 -5.25 2.75 -5.75 0.00 -0.25 0.75 -1.25 1.25 -2.25 3.75 -7.75 12.25 -18.00 18.75 -22.50 3.00 -2.25 7.75 -5.25 10.00 -6.50 3.00 -1.50 9.25 -4.25 10.00 -4.25 0.00 -0.00 0.50 -0.25 1.00 -0.25 0.75 -0.50 4.50 -1.50 6.50 -2.00 5.00 -1.00 3.25 -1.00 45.25 -1.25 28.50 -0.00 39.75 -0.25 40.50 -0.50 2.25 -0.75 3.50 -1.25 4.00 -1.50 0.25 -0.25 0.75 -0.75 1.50 -1.00 2.75 -2.00 5.50 -5.50 6.00 -8.75 0.75 -2.25 0.75 -114.25 0.25 -115.25l-0.50 -0.75 -44.75 -0.00 -44.75 -0.00 -0.25 0.50z" fill="currentColor"/><path d="M653.00 470.00c-1.75 0.50 -1.50 -1.75 -1.50 34.50 0.00 18.25 0.00 33.25 0.25 33.75 1.00 7.25 3.00 12.00 6.25 16.50 3.50 4.75 5.25 6.25 11.75 10.50 1.50 1.00 5.25 2.75 9.75 4.50 2.25 0.75 8.25 4.00 9.00 4.50 0.25 0.25 0.50 0.50 0.75 0.50 0.00 -0.00 0.25 0.25 0.50 0.50 0.25 0.25 0.75 0.50 1.00 0.75 0.50 -0.00 1.00 0.25 1.50 0.75 0.25 0.25 1.25 1.00 2.00 1.50 2.25 1.50 9.00 8.75 10.75 11.50 5.25 7.25 8.50 14.75 10.00 22.25 0.25 1.75 0.75 3.25 0.75 3.75 0.25 0.75 0.25 6.00 0.50 12.00 0.00 11.25 -0.25 15.00 -1.25 20.50 -1.25 7.00 -1.25 6.50 -2.50 11.00 -2.25 8.50 -5.75 16.50 -11.00 25.00 -4.00 6.75 -7.75 11.50 -14.50 18.25 -5.50 5.25 -11.50 9.75 -16.75 13.00 -1.00 0.50 -2.25 1.25 -3.00 1.75 -3.50 2.00 -16.00 7.00 -17.75 7.00 -0.25 -0.00 -1.00 0.25 -1.50 0.25 -1.50 0.50 -6.50 1.50 -9.75 1.75 -1.75 0.25 -14.00 0.25 -38.50 0.25l-35.75 0.25 -2.00 0.50c-5.00 1.50 -8.75 4.75 -10.50 9.75l-0.50 2.00 0.00 50.25c0.00 45.00 0.00 50.25 0.50 50.50 0.50 0.50 83.25 0.50 83.75 -0.00 0.50 -0.25 0.50 -2.25 0.50 -19.50 0.25 -17.75 0.25 -19.50 0.50 -21.00 0.75 -2.25 2.25 -7.00 2.50 -7.50 0.50 -0.75 1.50 -3.50 1.50 -3.75 0.00 -0.00 0.25 -0.25 0.25 -0.50 0.25 -0.25 0.75 -1.00 1.25 -2.00 2.75 -5.00 8.50 -11.25 14.00 -14.75 1.25 -1.00 5.50 -3.25 6.50 -3.75 0.25 -0.00 1.00 -0.25 1.75 -0.75 2.50 -1.25 7.00 -2.25 10.25 -2.75 1.00 -0.25 15.25 -0.25 31.50 -0.25 18.75 -0.25 29.75 -0.25 30.25 -0.50 0.50 -0.25 1.50 -0.25 2.00 -0.25 2.25 -0.00 12.50 -2.25 14.25 -3.25 0.25 -0.00 1.00 -0.50 2.00 -0.75 6.00 -2.00 16.25 -7.50 20.00 -10.75 0.50 -0.50 1.00 -0.75 1.00 -0.75 0.25 -0.00 3.50 -3.00 6.75 -6.00 4.50 -4.50 8.50 -9.00 11.25 -13.75 0.75 -1.25 4.50 -7.75 4.50 -8.00 0.00 -0.00 0.50 -1.00 1.00 -2.00 0.75 -1.75 1.00 -2.50 2.00 -5.25 0.50 -1.25 2.25 -6.50 2.25 -7.50 0.25 -0.25 0.50 -2.50 1.00 -4.75l0.75 -4.25 0.25 -13.75c0.50 -33.50 0.25 -70.25 -0.50 -74.75 -0.50 -2.75 -1.25 -6.75 -1.50 -7.00 -0.25 -0.25 -0.25 -0.75 -0.25 -1.00 0.00 -0.50 -1.75 -6.25 -2.25 -7.00 0.00 -0.50 -0.25 -1.00 -0.25 -1.00 0.00 -0.50 -4.00 -8.50 -5.25 -10.75 -0.75 -1.00 -1.50 -2.25 -1.75 -2.75 -2.50 -4.00 -11.75 -14.00 -16.50 -17.50 -2.00 -1.25 -6.00 -4.00 -6.25 -4.00 0.00 -0.00 -0.75 -0.25 -1.50 -0.75 -1.00 -0.75 -4.25 -2.25 -8.25 -4.25 -2.50 -1.00 -6.75 -2.50 -12.00 -4.00 -2.25 -0.75 -4.50 -1.50 -5.00 -1.75 -0.25 -0.00 -0.75 -0.25 -1.00 -0.25 -0.25 -0.00 -0.50 -0.25 -1.00 -0.25 -0.25 -0.25 -0.75 -0.50 -1.00 -0.50 -1.75 -0.75 -7.50 -4.25 -10.25 -6.75 -3.25 -2.75 -8.25 -8.25 -9.50 -10.50 -0.25 -0.25 -0.75 -1.00 -1.00 -1.50 -2.75 -4.25 -3.50 -5.75 -3.75 -7.00 -0.25 -0.25 -0.50 -1.75 -1.00 -2.75 -2.25 -7.00 -2.50 -8.75 -2.50 -28.50 -0.25 -14.00 -0.25 -16.00 -0.50 -16.75l-0.50 -0.75 -29.00 -0.00c-17.00 -0.00 -29.25 0.25 -29.75 0.25z" fill="currentColor"/><path d="M635 547Q645 577 671 583Q645 589 635 619Q635.5 592 628 583Q635.5 574 635 547Z" fill="var(--spark)"/></svg>' +
         '<div><b>Countersign</b><span>Audit record</span></div></div><div class="stamp' + stampCls + '">' + vl[0] + '</div></header>' +
       '<div class="doc-id">Record <code>' + esc(a.audit_id) + '</code> · ' + longDate(at) + '</div>' +
-      '<h2 class="doc-title">Change #' + a.pull_request + ': ' + esc(D.change.title) + '</h2>' +
+      '<h2 class="doc-title">Change #' + a.pull_request + ': ' + esc(C.change.title) + '</h2>' +
       '<dl class="facts">' +
         '<dt>API</dt><dd><span class="ref">' + esc(a.api) + '</span></dd>' +
         '<dt>Author</dt><dd>' + av(DEV) + esc(a.author) + ', developer</dd>' +
         '<dt>Commit</dt><dd><span class="ref">' + esc(a.commit) + '</span> ' + esc(v.title) + '</dd>' +
-        '<dt>Branch</dt><dd><span class="ref">' + esc(D.change.branch) + '</span> into <span class="ref">' + esc(D.change.base) + '</span></dd>' +
+        '<dt>Branch</dt><dd><span class="ref">' + esc(C.change.branch) + '</span> into <span class="ref">' + esc(C.change.base) + '</span></dd>' +
         '<dt>Checked by</dt><dd>Countersign, in the company\'s own CI</dd>' +
       '</dl>' + s1 + s2 + s3 + s4 + s5 +
       '<footer class="doc-foot"><span>Written by Countersign when it made this decision. Sample workspace: the people, payments and companies are made up.</span>' +
@@ -1166,12 +1266,12 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
 
   // ---------- How it works ----------
   function renderHow() {
-    var bad = D.bad, ex = bad.money.wrong[0];
+    var bad = CHANGES[0].bad, ex = bad.money.wrong[0], second = CHANGES[1];
     view.innerHTML =
       '<div class="page-head"><div><h1>How Countersign works</h1></div></div>' +
       '<p class="lede">A code change can pass every test and still send the wrong amount of money. Countersign checks every pull request that touches money. When a change could pay out wrongly, it stops the change, shows the exact payment that would go wrong, and waits for a named person to sign.</p>' +
       '<div class="three">' +
-        howCard(1, "Who will break?", "Compares the old and new API, then reads the company's own gateway logs to find every app that sends the field that changed.",
+        howCard(1, "Who will break?", "Compares the old and new API, then works out what every app really sends: from requests recorded in the company's own gateway logs, matched with last week's ledger, or from the app's code when it lives in the same repo. Nobody has to label anything.",
           "The merchant dashboard and the partner shopping app still send paise. The new code reads rupees.",
           "The standard API checker (oasdiff) passes this change. A number is still a number. Only its meaning changed.") +
         howCard(2, "Is the money right?", "Replays last week's real payments (a masked copy) through the old and the new code, then checks money rules like \"a refund can't be more than what was paid\".",
@@ -1183,6 +1283,11 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
       '</div>' +
       '<section class="sheet analogy" style="margin-top:18px"><p>Banks have done this for a long time. One person makes a payment and a second person checks it before it goes out. It\'s called <b>maker–checker</b>. Countersign brings the same rule to code that moves money.</p>' +
         '<div class="stamp signed" style="font-size:13px">Checked</div></section>' +
+      (second ? '<section class="sheet sheet-b" style="margin-top:18px"><h2 style="margin:0 0 6px;font-size:17px">Fix it, or sign it</h2>' +
+        '<p class="explain" style="margin-top:0">Countersign can\'t tell a mistake from a decision. It can only show what a change does to real money. In this demo there is one of each.</p>' +
+        '<p class="explain"><b>A mistake.</b> Change #' + CHANGES[0].change.number + ' would send ' + crore(bad.money.over_refund_paise) + ' too much. Nobody should sign that. The developer fixes it, and the checks go green.</p>' +
+        '<p class="explain"><b>A decision.</b> Change #' + second.change.number + ' sends refunds above ₹1,00,000 to manual review, because finance asked. It turns away ' + n(second.bad.money.wrong.length) + ' of last week\'s refunds, ' + big(second.bad.money.not_sent_paise) + ' in all. That is the point of the change, so there is nothing to fix. The payments lead reads the numbers, signs that exact commit and gives her reason. All of it goes in the audit record.</p>' +
+        '<p style="margin:12px 0 0"><a class="btn" href="#/' + second.change.route + '">See the decision on change #' + second.change.number + ICON.arrow + '</a></p></section>' : "") +
       '<section class="sheet" style="margin-top:18px"><div class="sheet-h"><h2>Where it runs</h2></div><div class="flow">' +
         '<div class="box"><b>Developer</b>opens a pull request</div><div class="arr">' + ICON.arrow + '</div>' +
         '<div class="box us"><b>Countersign</b>runs in the company\'s own CI (GitHub Actions)</div><div class="arr">' + ICON.arrow + '</div>' +
@@ -1190,7 +1295,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         '<div class="box"><b>Result on the pull request</b>stopped or all clear, a comment, an audit record</div>' +
       '</div><div class="sheet-b" style="padding-top:0"><p class="explain" style="margin:0">Code and payment data never leave the company. Countersign\'s own rules run from the main branch, so a pull request can\'t switch them off.</p></div></section>' +
       '<section class="sheet sheet-b" style="margin-top:18px"><b>About this demo.</b> <span class="muted">It runs the idea on one sample refund API with made-up, masked data, and it isn\'t a product a company can install yet. Rohan and Ananya are made-up teammates. Every number on this site comes from really running the checks on that sample.</span></section>' +
-      '<p style="margin-top:20px"><a class="btn primary" href="#/change">See it on change #' + D.change.number + ICON.arrow + '</a></p>';
+      '<p style="margin-top:20px"><a class="btn primary" href="#/change">See it on change #' + CHANGES[0].change.number + ICON.arrow + '</a></p>';
     updateNav();
   }
   function howCard(num, title, how, demo, why) {
@@ -1213,11 +1318,11 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
 
   // #/change?play=fix (or play=approve) acts out the whole story by itself, for recording.
   var play = params.get("play");
-  if (play && current() === "change") {
+  if (play && onChangePage()) {
     (async function () {
       await sleep(1800); await runChecks();
       await sleep(4000);
-      if (play === "approve") await approve(); else await pushFix();
+      if (play === "approve" || !D.fix) await approve(); else await pushFix();
       await sleep(3000); await merge();
     })();
   }

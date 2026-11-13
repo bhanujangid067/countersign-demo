@@ -4,7 +4,7 @@ Re-runs the refund replay on all three versions of the code, so the website's nu
 example refunds and code diffs all come from the real checks, not typed in by hand.
 
 Usage: python -m countersign.site --base <main dir> --bad <bad-change dir> --fix <fix dir>
-         --results out/local --out site/data.js
+         --review <review-limit dir> --results out/local --out site/data.js
 """
 
 import argparse
@@ -15,10 +15,12 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from countersign.check_money import build_request, read_refunds, rule_holds, send
-from countersign.common import load_config, load_handler, load_yaml, mask_order, read_gateway_log
+from countersign.check_money import rule_holds, send
+from countersign.common import (
+    load_config, load_handler, load_yaml, mask_order, read_gateway_log, read_refunds, request_builder,
+)
 
-DIFF_FILES = ["service/refund_api.py", "service/openapi.yaml", "data/gateway_log.jsonl", "service/tests/test_refunds.py"]
+DIFF_FILES = ["service/refund_api.py", "service/openapi.yaml", "clients/mobile_app.py", "service/tests/test_refunds.py"]
 
 
 def file_diff(old_dir: Path, new_dir: Path, path: str) -> dict | None:
@@ -44,25 +46,40 @@ def replay(base: Path, head: Path, config: dict) -> dict:
     rules = load_yaml(base / config["rules"])["rules"]
     old_handler = load_handler(base, config["handler"])
     new_handler = load_handler(head, config["handler"])
-    old_log = {e["caller"]: e for e in read_gateway_log(base / config["gateway_log"])}
-    new_log = {e["caller"]: e for e in read_gateway_log(head / config["gateway_log"])}
     refunds = read_refunds(base / config["replay_data"])
+    ledger = {row["order_id"]: row["refund_paise"] for row in refunds}
+    log = {e["caller"]: e for e in read_gateway_log(base / config["gateway_log"])}
+    old_build = {c: request_builder(e, base, config, ledger) for c, e in log.items()}
+    new_build = {c: request_builder(e, head, config, ledger) for c, e in log.items()}
 
-    wrong, over = [], 0
+    wrong, over, not_sent, rejected = [], 0, 0, 0
+    broken_count = [0] * len(rules)
     for i, row in enumerate(refunds):
-        before = send(old_handler, build_request(row, old_log[row["caller"]]))
-        after = send(new_handler, build_request(row, new_log[row["caller"]]))
-        values = {"paid": row["paid_paise"], "refund_asked": row["refund_paise"],
-                  "refund_before": before, "refund_out": after}
-        broken = after is None or not all(rule_holds(r["check"], values) for r in rules)
+        before = send(old_handler, old_build[row["caller"]](row))
+        after = send(new_handler, new_build[row["caller"]](row))
+        broken = False
+        if after is None:
+            if before is not None:
+                broken = True
+                rejected += 1
+                not_sent += before
+        else:
+            values = {"paid": row["paid_paise"], "refund_asked": row["refund_paise"],
+                      "refund_before": before, "refund_out": after}
+            for n, rule in enumerate(rules):
+                if not rule_holds(rule["check"], values):
+                    broken = True
+                    broken_count[n] += 1
+                    over += after - before
+                    break
         if broken:
-            # [row number, masked order, caller, paid, old code sent, new code sends]
-            wrong.append([i, mask_order(row["order_id"]), new_log[row["caller"]]["name"],
+            # [row number, masked order, caller, paid, old code sent, new code sends (None = turned away)]
+            wrong.append([i, mask_order(row["order_id"]), log[row["caller"]]["name"],
                           row["paid_paise"], before, after])
-            if after is not None and before is not None:
-                over += after - before
-    return {"replayed": len(refunds), "wrong": wrong, "over_refund_paise": over,
-            "rules": [{"check": r["check"], "message": r["message"]} for r in rules]}
+    return {"replayed": len(refunds), "wrong": wrong, "over_refund_paise": over, "not_sent_paise": not_sent,
+            "rejected": rejected,
+            "rules": [{"check": r["check"], "message": r["message"], "broken": broken_count[n]}
+                      for n, r in enumerate(rules)]}
 
 
 def main() -> int:
@@ -70,6 +87,7 @@ def main() -> int:
     parser.add_argument("--base", required=True, type=Path, help="main (before the change)")
     parser.add_argument("--bad", required=True, type=Path, help="bad-change")
     parser.add_argument("--fix", required=True, type=Path, help="fix")
+    parser.add_argument("--review", required=True, type=Path, help="review-limit (the second change)")
     parser.add_argument("--results", required=True, type=Path, help="out/local, from demo_local.sh")
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
@@ -89,23 +107,39 @@ def main() -> int:
             "audit": audit,
         }
 
-    data = {
-        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "api": config["api_name"],
-        "approver_role": config["approver"]["role"],
+    first = {
         "change": {"number": 482, "title": "Refund API: take amount in rupees",
-                   "branch": "bad-change", "base": "main"},
+                   "branch": "bad-change", "base": "main", "route": "change"},
         "bad": version("bad-change", args.base, args.bad,
                        "Refund API: take amount in rupees (simpler for app developers)"),
         "fix": version("fix", args.bad, args.fix,
                        "Fix: refund API takes an explicit unit, paise by default"),
+    }
+    # The second change is meant to alter refunds, so there is no fix: the payments lead decides.
+    review_audit = read("review-limit", "audit.json")
+    second = {
+        "change": {"number": 483, "title": "Refund API: manual review above ₹1,00,000",
+                   "branch": "review-limit", "base": "main", "route": "review",
+                   "reason": review_audit["sign_off"].get("reason")},
+        "bad": version("review-limit", args.base, args.review,
+                       "Refund API: refunds above ₹1,00,000 need manual review"),
+        "fix": None,
+    }
+    data = {
+        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "api": config["api_name"],
+        "approver_role": config["approver"]["role"],
+        "changes": [first, second],
+        # The first change again at the top level, where older tools (the video recorder) look for it.
+        **first,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(
         "// Generated by countersign/site.py from a real demo run. Sample data only.\n"
         "window.COUNTERSIGN = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n")
     print(f"Website data written to {args.out} "
-          f"({len(data['bad']['money']['wrong'])} wrong refunds of {data['bad']['money']['replayed']})")
+          f"({len(data['bad']['money']['wrong'])} wrong refunds of {data['bad']['money']['replayed']}; "
+          f"second change: {len(second['bad']['money']['wrong'])})")
     return 0
 
 
