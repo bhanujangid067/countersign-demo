@@ -25,8 +25,8 @@ export const boxes = site.boxes as Record<string, Box | null>;
 export const siteAt = (id: string) => marks[id] - marks.overview;
 export const momentAt = (name: string) => moments[name] - marks.overview;
 export const SITE_TRIM = marks.overview; // where the website section starts in site.mp4
-export const SITE_SCENES = ["overview", "change", "check1", "check2", "stopped", "fix", "rewind", "approve", "audit"];
-export const VOICED = new Set(["overview", "change", "check1", "check2", "stopped", "fix", "approve", "audit"]);
+export const SITE_SCENES = ["overview", "change", "check1", "check2", "stopped", "fix", "rewind", "second", "approve", "audit"];
+export const VOICED = new Set(["overview", "change", "check1", "check2", "stopped", "fix", "second", "approve", "audit"]);
 
 export const VOICE_IN = { title: 1.5, problem: 0.5, close: 1.4 };
 

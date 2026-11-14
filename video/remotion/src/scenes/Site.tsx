@@ -19,7 +19,7 @@ const lengthOf = (id: string) => {
 // ---- the "two ways forward" cards, shown twice: before path one, and between path one and path two ----
 const AWAY = [
   { up: siteAt("stopped") + said("stopped", "There are two ways") - 0.15, down: siteAt("fix") + 0.55 },
-  { up: momentAt("mergeUnlocked") + 0.6, down: siteAt("approve") + 1.5 },
+  { up: momentAt("mergeUnlocked") + 0.6, down: siteAt("second") + 1.3 },
 ];
 const FADE = 0.7; // seconds to pull back or dive in
 function away(t: number) {
@@ -39,6 +39,8 @@ const camera = makeCamera([
   { t: siteAt("stopped") + 0.3, ...WORK(0.4) },
   { t: siteAt("fix") + 2.5, ...WORK(0.45) },
   { t: momentAt("allClear") - 0.8, ...WORK(0.4) },
+  { t: siteAt("second") + 1.2, ...WORK(0.4) },
+  { t: momentAt("secondMoney") - 1.0, ...WORK(0.5) },
   { t: siteAt("approve") + 2.0, ...WORK(0.6) },
   { t: momentAt("countersigned") + 2.2, ...WORK(0.4) },
   { t: siteAt("audit") + 0.1, ...FULL },
@@ -104,11 +106,17 @@ const Overlay: React.FC<{ id: string }> = ({ id }) => {
   const end = lengthOf(id);
   switch (id) {
     case "overview":
-      return <>{chip("The payments lead's dashboard", "SAMPLE CO.")}{voice}</>;
+      return (
+        <>
+          {chip("The payments lead's dashboard", "SAMPLE CO.")}
+          {callout(said("overview", "has two changes"), end, C.pen, <><Big color={C.ink} size={40}>Two changes waiting</Big><Small>One is a mistake. One is a decision.</Small></>, { top: 600 })}
+          {voice}
+        </>
+      );
     case "change":
       return (
         <>
-          {chip("Rohan's change", "STEP 1")}
+          {chip("Rohan's first change", "CHANGE #482")}
           {callout(said("change", "and every normal test"), end, C.clear, <><Row><Tick color={C.clear} size={38} /><Big color={C.clear} size={42}>Every test passes</Big></Row><Small>4 of 4 unit tests. Most teams would merge this.</Small></>, { top: 600 })}
           {voice}
         </>
@@ -123,6 +131,7 @@ const Overlay: React.FC<{ id: string }> = ({ id }) => {
               <Row><span style={{ width: 14, height: 14, borderRadius: 7, background: C.stop }} />Merchant dashboard</Row>
               <Row><span style={{ width: 14, height: 14, borderRadius: 7, background: C.stop }} />Partner shopping app</Row>
               <div style={{ height: 1, background: C.rule, margin: "18px 0 6px" }} />
+              <Row><Tick color={C.pen} size={26} /><span style={{ fontSize: 22, color: C.ink2 }}>Worked out from recorded requests</span></Row>
               <Row><Tick color={C.clear} size={26} /><span style={{ fontSize: 22, color: C.ink2 }}>Standard API checker said it was fine</span></Row>
             </>
           ), { top: 540 })}
@@ -138,8 +147,10 @@ const Overlay: React.FC<{ id: string }> = ({ id }) => {
               <Big color={C.ink} size={66}><Counter to={890} color={C.stop} /><span style={{ fontSize: 38, color: C.muted, fontWeight: 600 }}> of 4,180</span></Big>
               <Small>refunds from last week come out wrong</Small>
               <Row><span style={{ fontSize: 32, fontWeight: 600 }}>₹900</span><span style={{ color: C.muted }}>→</span><span style={{ fontSize: 32, fontWeight: 700, color: C.stop }}>₹90,000</span></Row>
+              <Small>₹94.1 crore too much, in one week</Small>
             </>
-          ), { top: 580 })}
+          ), { side: "left", top: 520 })}
+          {sfx("page-turn.wav", momentAt("evidence") - start, 0.3)}
           {voice}
         </>
       );
@@ -163,7 +174,7 @@ const Overlay: React.FC<{ id: string }> = ({ id }) => {
       const clear = momentAt("allClear") - start;
       return (
         <>
-          {chip("Rohan fixes it", "PATH 1", C.clear, 1.2)}
+          {chip("A mistake: Rohan fixes it", "PATH 1", C.clear, 1.2)}
           {callout(clear + 0.1, AWAY[1].up - start, C.clear, (
             <>
               <Row><Tick color={C.clear} size={42} /><Big color={C.clear}>All clear</Big></Row>
@@ -175,14 +186,35 @@ const Overlay: React.FC<{ id: string }> = ({ id }) => {
         </>
       );
     }
+    case "second": {
+      const money = momentAt("secondMoney") - start;
+      return (
+        <>
+          {chip("Rohan's second change", "CHANGE #483", C.pen, 1.4)}
+          {callout(said("second", "Finance wants"), money - 0.3, C.pen, (
+            <>
+              <Big color={C.ink} size={40}>Manual review above ₹1,00,000</Big>
+              <Small>Finance asked for it. The code does exactly that.</Small>
+            </>
+          ), { top: 600 })}
+          {callout(money + 0.1, end, C.stop, (
+            <>
+              <Big color={C.ink} size={66}><Counter to={7} color={C.stop} /><span style={{ fontSize: 38, color: C.muted, fontWeight: 600 }}> of 4,180</span></Big>
+              <Small>refunds would be turned away: ₹10 lakh in all</Small>
+            </>
+          ), { top: 580 })}
+          {voice}
+        </>
+      );
+    }
     case "approve": {
       const signed = momentAt("countersigned") - start, merged = momentAt("merged") - start;
       return (
         <>
-          {chip("Ananya signs off", "PATH 2", C.pen, 2.2)}
-          {callout(signed + 0.2, signed + 2.3, C.pen, (
+          {chip("A decision: Ananya signs it", "PATH 2", C.pen, 0.4)}
+          {callout(signed + 0.2, signed + 2.6, C.pen, (
             <>
-              <Big color={C.pen} size={42}>Countersigned</Big>
+              <Big color={C.pen} size={42}>Countersigned, with a reason</Big>
               <Small>Ananya Iyer, payments lead. For this exact commit only.</Small>
             </>
           ), { top: 170 })}
@@ -201,14 +233,14 @@ const Overlay: React.FC<{ id: string }> = ({ id }) => {
     case "audit":
       return (
         <>
-          {chip("The audit record", "RECORD")}
+          {chip("The audit log", "RECORD")}
           {sfx("page-turn.wav", 0.2, 0.35)}
           {callout(2.2, end, C.pen, (
             <>
               <Big color={C.ink} size={38}>A signed record of every decision</Big>
               <Row><Tick color={C.pen} size={28} />What was checked</Row>
-              <Row><Cross color={C.stop} size={28} />What went wrong</Row>
-              <Row><Tick color={C.pen} size={28} />Who approved it, and when</Row>
+              <Row><Cross color={C.stop} size={28} />What it found</Row>
+              <Row><Tick color={C.pen} size={28} />Who signed, and why</Row>
             </>
           ), { side: "left", top: 440, width: 480 })}
           {voice}
@@ -223,9 +255,9 @@ const Overlay: React.FC<{ id: string }> = ({ id }) => {
 const PathCards: React.FC<{ t: number; amount: number }> = ({ t, amount }) => {
   const { fps } = useVideoConfig();
   const second = t >= AWAY[1].up - 0.1;
-  const active = second ? (t >= siteAt("approve") ? 2 : 0) : t >= siteAt("fix") ? 1 : 0;
+  const active = second ? (t >= siteAt("second") ? 2 : 0) : t >= siteAt("fix") ? 1 : 0;
   const choose = (n: number) => {
-    const from = n === 1 ? siteAt("fix") : siteAt("approve");
+    const from = n === 1 ? siteAt("fix") : siteAt("second");
     return active === n ? spring({ frame: Math.round((t - from) * fps), fps, config: { damping: 16, stiffness: 140 } }) : 0;
   };
   const enter = (i: number) => {
@@ -236,14 +268,14 @@ const PathCards: React.FC<{ t: number; amount: number }> = ({ t, amount }) => {
   const w = AWAY[second ? 1 : 0];
   const leaving = interpolate(t, [w.down, w.down + FADE], [0, 1], { ...clamp, easing: inOut });
   const cards = [
-    { n: 1, title: "Rohan fixes the code", sub: "Countersign checks the new commit again", color: C.clear },
-    { n: 2, title: "Ananya signs off", sub: "The payments lead countersigns this exact commit", color: C.pen },
+    { n: 1, title: "Fix it", sub: "When it's a mistake: the developer fixes the code", color: C.clear },
+    { n: 2, title: "Sign it", sub: "When it's a decision: the payments lead countersigns", color: C.pen },
   ];
   return (
     <AbsoluteFill style={{ opacity: amount, fontFamily: SANS, justifyContent: "center", alignItems: "center", flexDirection: "column", gap: 44 }}>
       <div style={{ textAlign: "center", opacity: 1 - leaving }}>
-        <div style={{ fontFamily: MONO, fontSize: 24, letterSpacing: "0.16em", color: C.stop, fontWeight: 500 }}>CHANGE #482 IS STOPPED</div>
-        <div style={{ fontSize: 76, fontWeight: 700, letterSpacing: "-0.025em", color: C.ink, marginTop: 6 }}>Two ways forward</div>
+        <div style={{ fontFamily: MONO, fontSize: 24, letterSpacing: "0.16em", color: second ? C.pen : C.stop, fontWeight: 500 }}>{second ? "A SECOND CHANGE, ON PURPOSE" : "CHANGE #482 IS STOPPED"}</div>
+        <div style={{ fontSize: 76, fontWeight: 700, letterSpacing: "-0.025em", color: C.ink, marginTop: 6 }}>{second ? "Not every stop is a mistake" : "Two ways forward"}</div>
       </div>
       <div style={{ display: "flex", gap: 48 }}>
         {cards.map((c, i) => {

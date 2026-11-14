@@ -188,10 +188,22 @@ await scene("check1", async () => {
   await wait(2500);
   await boxOf("callers", "#chkCallers");
 });
-await scene("check2", async () => {
+await scene("check2", async (start) => {
   await release("money");
   await wait(2500);
   await boxOf("money", "#chkMoney");
+  // Open the evidence for the first wrong refund in the side panel, then close it again.
+  await until(() => !!document.querySelector('[data-refund="0"]') && document.getElementById("statusPill"), null, "the first wrong refund");
+  await at(start, LINES.check2.seconds * 0.55);
+  await page.evaluate(() => document.querySelector('[data-refund="0"]').scrollIntoView({ behavior: "smooth", block: "center" }));
+  await wait(1100);
+  await click('[data-refund="0"]');
+  moment("evidence");
+  await wait(700);
+  await boxOf("evidence", "#drawer");
+  await at(start, LINES.check2.seconds + PAD - 0.9);
+  await key("Escape");
+  moment("evidenceClosed");
 });
 await scene("stopped", async () => {
   await release("signoff");
@@ -221,17 +233,28 @@ await scene("fix", async (start) => {
   await boxOf("mergeOpenCentered", "#bMerge");
   moment("mergeUnlocked");
 }, LINES.fix.seconds + 0.3);
-// No voice: back to the stopped change, hidden behind the "path two" card in the video.
+// No voice: over to the second change, already checked and stopped, hidden behind the "path two" card in the video.
 await scene("rewind", async () => {
-  await page.evaluate(() => window.__setSpeed(40));
-  await key("0");
-  await wait(100);
+  await page.evaluate(() => { window.__setSpeed(40); location.hash = "#/review"; });
+  await wait(200);
   await key("r");
   await pill("Stopped");
+  await wait(300); // let the page finish settling at speed
   await page.evaluate(() => { window.__setSpeed(1); window.scrollTo(0, 150); });
-}, 0.5);
+}, 0.8);
+// The second change: nothing is wrong with it, and it still moves money differently.
+await scene("second", async (start) => {
+  await boxOf("verdictSecond", "#verdict");
+  await at(start, LINES.second.seconds * 0.38);
+  await page.evaluate(() => document.getElementById("chkCallers").scrollIntoView({ behavior: "smooth", block: "start" }));
+  await at(start, LINES.second.seconds * 0.62);
+  await page.evaluate(() => document.getElementById("chkMoney").scrollIntoView({ behavior: "smooth", block: "start" }));
+  await wait(1100);
+  moment("secondMoney");
+  await boxOf("money2", "#chkMoney");
+});
 await scene("approve", async (start) => {
-  await at(start, 2.6);
+  await at(start, LINES.approve.seconds * 0.42);
   await key("a");
   moment("signing");
   await pill("Countersigned");
@@ -240,7 +263,7 @@ await scene("approve", async (start) => {
   await boxOf("signoff", "#chkSignoff");
   await boxOf("verdictSigned", "#verdict");
   await boxOf("mergeBoxSigned", "#mergeBox");
-  await at(start, 9.0);
+  await at(start, LINES.approve.seconds - 2.6);
   await boxOf("mergeSigned", "#bMerge");
   moment("mergeClick2");
   await click("#bMerge");
@@ -251,11 +274,24 @@ await scene("approve", async (start) => {
 });
 await scene("audit", async () => {
   await page.evaluate(() => { location.hash = "#/audit"; });
-  await wait(1400);
+  await wait(2200);
+  // Open the newest record (the change that was just signed and merged) and read down to the signature.
+  await click("#logBody tr");
+  moment("record");
+  await wait(1500);
+  await boxOf("record", "#drawer");
   await page.evaluate(() => {
-    const el = document.querySelectorAll(".doc-s")[3];
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 220, behavior: "smooth" });
+    const body = document.getElementById("drawerBody"), sig = body.querySelector(".sig") || body.querySelectorAll(".doc-s")[3];
+    const from = body.scrollTop, to = from + sig.getBoundingClientRect().top - body.getBoundingClientRect().top - 150, began = performance.now();
+    const step = () => {
+      const p = Math.min(1, (performance.now() - began) / 1100), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      body.scrollTop = from + (to - from) * e;
+      if (p < 1) setTimeout(step, 1000 / 60);
+    };
+    step();
   });
+  await wait(1300);
+  await boxOf("signature", "#drawerBody .sig");
 });
 marks.end = now();
 await wait(500);

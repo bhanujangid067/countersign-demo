@@ -12,19 +12,19 @@
     },
     {
       "id": "overview",
-      "text": "Countersign checks every pull request that touches money. This is the payments lead's view, at a sample company. A developer, Rohan, has a change waiting on the refund API."
+      "text": "Countersign checks every pull request that touches money. This is the payments lead's view, at a sample company. Rohan, a developer, has two changes waiting on the refund API."
     },
     {
       "id": "change",
-      "text": "Rohan switches the amount field from paise to rupees. He updates the mobile app too, and every normal test passes. Most teams would merge this."
+      "text": "In the first, Rohan switches the amount field from paise to rupees. He updates the mobile app too, and every normal test passes. Most teams would merge this."
     },
     {
       "id": "check1",
-      "text": "Countersign's first question: who will break? It reads the company's own gateway logs. Two apps still send paise, the merchant dashboard and the partner shopping app. Even the standard API checker said this change was fine."
+      "text": "Countersign's first question: who will break? Nobody labels what each app sends, so it works that out from recorded requests. Two apps still send paise. Even the standard API checker said this change was fine."
     },
     {
       "id": "check2",
-      "text": "Second question: is the money right? It replays last week's four thousand, one hundred and eighty refunds through the new code. Eight hundred and ninety of them come out wrong."
+      "text": "Second question: is the money right? It replays last week's four thousand, one hundred and eighty refunds through the new code. Eight hundred and ninety come out wrong. For every one, it can show exactly what the app sent, and what the bank would be told to pay."
     },
     {
       "id": "stopped",
@@ -32,19 +32,23 @@
     },
     {
       "id": "fix",
-      "text": "Path one: Rohan fixes it. The API now takes an explicit unit, with paise as the default. Countersign checks again. Every app works, every refund is right, and the merge unlocks."
+      "text": "If it's a mistake, fix it. Rohan makes the unit explicit, with paise as the default. Countersign checks again. Every app works, every refund is right, and the merge unlocks."
+    },
+    {
+      "id": "second",
+      "text": "But some changes are meant to move money differently. Finance wants refunds above one lakh rupees reviewed by a person. Countersign stops this one too. Seven of last week's refunds, ten lakh rupees in all, would be turned away."
     },
     {
       "id": "approve",
-      "text": "Path two: the team wants to go ahead anyway. Ananya, the payments lead, reviews the evidence, and countersigns that exact commit. Her signature goes on record, and only then does the change merge."
+      "text": "Here, nothing needs fixing. Someone has to decide. Ananya, the payments lead, reads the numbers, countersigns that exact commit, and gives her reason. Only then does the change merge."
     },
     {
       "id": "audit",
-      "text": "Either way, every decision becomes a signed audit record. What was checked, what went wrong, and who approved it."
+      "text": "Every decision goes into the audit log. What was checked, what it found, who signed, and why."
     },
     {
       "id": "gh1",
-      "text": "Now the real thing. Countersign already runs as a check on GitHub. Here is Rohan's pull request, and the line that changes paise to rupees."
+      "text": "Now the real thing. Countersign runs as a GitHub Action. Here is Rohan's pull request, and the line that changes paise to rupees."
     },
     {
       "id": "gh2",
