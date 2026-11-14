@@ -4,11 +4,11 @@ and data/gateway_log.jsonl (one day of gateway traffic, with a few recorded requ
 Run: python scripts/make_sample_data.py
 Same seed every time, so the file (and the demo numbers) never change.
 
-Numbers it produces (they must match the pitch):
+Numbers it produces (the README, website and video quote them):
   4,180 refunds in total
     890 from callers that still send paise (merchant dashboard + partner shopping app)
   3,290 from the mobile app
-  The first three refunds from those two callers are the pitch examples:
+  The first three refunds from those two callers are the examples shown everywhere:
     ord_••41  paid ₹900.00    refund ₹900.00
     ord_••87  paid ₹1,250.00  refund ₹1,250.00
     ord_••12  paid ₹49.00     refund ₹49.00
@@ -88,7 +88,7 @@ def main() -> None:
     for row in rows:
         row["order_id"] = fake_order_id(rng)
 
-    # Put the three pitch examples first so they are the examples Countersign shows.
+    # Put the three examples first so they are the examples Countersign shows.
     examples = [
         {"order_id": fake_order_id(rng, end), "caller": caller,
          "paid_paise": paid, "refund_paise": refund}

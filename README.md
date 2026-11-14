@@ -157,17 +157,17 @@ You need: a **public** repo (branch rules are free on public repos), and a **sec
    - Target: the default branch (`main`); Enforcement: **Active**
    - ✓ Require a pull request before merging → ✓ **Dismiss stale pull request approvals when new commits are pushed** (so a new commit always needs a new approval)
    - ✓ Require status checks to pass → add **Normal tests** and **Countersign**
-5. **On stage:**
+5. **During the walkthrough:**
    - Fix route: `scripts/github_demo.sh fix` → about a minute later everything is green.
    - The second change: `setup` also opens a PR from `review-limit`. It is stopped too, and it has no fix. The payments lead approves it and types the reason in the review box. The reason appears in the Countersign comment.
    - Approval route: the payments lead opens the PR → **Files changed → Review changes → Approve** → the "re-check after review" workflow (`countersign-review.yml`) re-runs Countersign, which turns green with "Approved by payments lead". Takes about a minute.
-6. After a rehearsal: `scripts/github_demo.sh reset` puts the PR back to the bad change. Any approval is cancelled, because the PR got a new push.
+6. Afterwards: `scripts/github_demo.sh reset` puts the PR back to the bad change. Any approval is cancelled, because the PR got a new push.
 
 The ruleset blocks direct pushes to `main`. To change `main`, switch the ruleset to **Disabled**, push, and switch it back to **Active**.
 
 ---
 
-## 90-second click-through script (for the pitch)
+## 90-second walkthrough script
 
 | Time | Show | Say |
 |---|---|---|
@@ -184,7 +184,7 @@ If the Wi-Fi fails: play the backup video, or run `scripts/demo_local.sh --pause
 
 ---
 
-## Questions judges might ask
+## Common questions
 
 - **"Couldn't a unit test catch this?"** The developer updated the tests along with the code, so the tests agree with the bug. Countersign checks against **real past traffic** and **money rules**, not against tests the same developer wrote.
 - **"Doesn't API diff tooling already do this?"** Format checks (like oasdiff, which we use) pass this change, because a number is still a number. The bug is in what the number **means**.
