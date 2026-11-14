@@ -59,7 +59,8 @@ def replay(base: Path, head: Path, config: dict) -> dict:
     for i, row in enumerate(refunds):
         before = send(old_handler, old_build[row["caller"]](row), out_field)
         after = send(new_handler, new_build[row["caller"]](row), out_field)
-        broken = False
+        broken, rule_ix = False, -1  # rule_ix -1: turned away
+        request = new_build[row["caller"]](row)
         if after is None:
             if before is not None:
                 broken = True
@@ -69,18 +70,40 @@ def replay(base: Path, head: Path, config: dict) -> dict:
             values = rule_values(row, before, after)
             for n, rule in enumerate(rules):
                 if not rule_holds(rule["check"], values):
-                    broken = True
+                    broken, rule_ix = True, n
                     broken_count[n] += 1
                     over += after - before
                     break
         if broken:
-            # [row number, masked order, caller, paid, old code sent, new code sends (None = turned away)]
+            # [row number, masked order, caller, paid, old code sent, new code sends (None = turned away),
+            #  amount the app sent, unit the app named (or None), which rule broke (-1 = turned away)]
+            money = config["money"]
             wrong.append([i, mask_order(row["id"]), log[row["caller"]]["name"],
-                          row["reference"], before, after])
+                          row["reference"], before, after,
+                          request[money["request_amount"]], request.get(money["request_unit"]), rule_ix])
     return {"replayed": len(refunds), "wrong": wrong, "over_refund_paise": over, "not_sent_paise": not_sent,
             "rejected": rejected,
             "rules": [{"check": r["check"], "message": r["message"], "broken": broken_count[n]}
                       for n, r in enumerate(rules)]}
+
+
+def caller_samples(base: Path, head: Path, config: dict) -> dict:
+    """For each app that sends money: its first few requests under this change, next to what the
+    bank really refunded for those orders. This is the evidence the website shows for its unit."""
+    money = config["money"]
+    refunds = read_refunds(base / config["replay_data"], money)
+    ledger = {row["id"]: row["asked"] for row in refunds}
+    samples = {}
+    for entry in read_gateway_log(base / config["gateway_log"]):
+        if "recent_requests" not in entry and entry["caller"] not in (config.get("clients_in_repo") or {}):
+            continue
+        build = request_builder(entry, head, config, ledger)
+        mine = [row for row in refunds if row["caller"] == entry["caller"]][:5]
+        # [masked order, amount sent, unit named in the request (or None), paise the bank refunded]
+        samples[entry["caller"]] = [
+            [mask_order(row["id"]), build(row)[money["request_amount"]], build(row).get(money["request_unit"]), row["asked"]]
+            for row in mine]
+    return samples
 
 
 def main() -> int:
@@ -98,12 +121,16 @@ def main() -> int:
 
     def version(name: str, old: Path, new: Path, title: str) -> dict:
         audit = read(name, "audit.json")
+        callers = read(name, "callers.json")
+        samples = caller_samples(args.base, new, config)
+        for caller in callers["callers"]:
+            caller["samples"] = samples.get(caller["caller"], [])
         return {
             "title": title,
             "commit": str(audit["commit"])[:7],
             "tests": count_tests(new),
             "diff": [d for d in (file_diff(old, new, p) for p in DIFF_FILES) if d],
-            "callers": read(name, "callers.json"),
+            "callers": callers,
             "money": replay(args.base, new, config),
             "audit": audit,
         }
@@ -130,6 +157,9 @@ def main() -> int:
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "api": config["api_name"],
         "approver_role": config["approver"]["role"],
+        # What the request fields are called, so the website can show a request as the app sent it.
+        "fields": {key: config["money"][key] for key in ("request_id", "request_amount", "request_unit",
+                                                         "minor_unit", "major_unit", "noun")},
         "changes": [first, second],
         # The first change again at the top level, where older tools (the video recorder) look for it.
         **first,
