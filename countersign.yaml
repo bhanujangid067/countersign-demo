@@ -1,0 +1,41 @@
+# What Countersign protects in this repo, and who signs off on risky changes.
+# Countersign reads this file from the base branch, so a pull request can't change it for itself.
+api_name: refund-api
+spec: service/openapi.yaml
+handler: service/refund_api.py:create_refund
+gateway_log: data/gateway_log.jsonl
+replay_data: data/refunds_last_week.csv
+rules: countersign/rules.yaml
+
+# Callers whose code lives in this repo. Countersign runs their code from the PR to see what
+# they will send. Every other caller is judged by the requests recorded in the gateway log.
+clients_in_repo:
+  mobile-app: clients/mobile_app.py:refund_request
+
+approver:
+  role: payments lead
+  # GitHub username of whoever plays the payments lead. Must NOT be the person who opens the PR
+  # (GitHub doesn't let you approve your own pull request).
+  github_user: Bhanubpj067
+
+label: needs-payments-lead
+
+# This repo's payments are made up. Countersign says so wherever it shows them.
+# Leave this line out when the replay data is a masked copy of real payments.
+data_label: sample data
+
+# How this API talks about money. These are the defaults, written out so they are easy to change
+# for another API (see examples/payouts/before/countersign.yaml).
+money:
+  noun: refund                   # used in messages: "890 of 4,180 refunds"
+  request_id: order_id           # request field that says which order
+  request_amount: amount         # request field that carries the money
+  request_unit: unit             # optional request field that names the unit
+  result_amount: refund_paise    # field of the handler's result: money sent, in the minor unit
+  replay_id: order_id            # replay data column: which order
+  replay_caller: caller          # replay data column: which app sent it
+  replay_amount: refund_paise    # replay data column: what was asked for, in the minor unit
+  replay_reference: paid_paise   # replay data column: the amount rules compare against ("paid")
+  minor_unit: paise
+  major_unit: rupees
+  minor_per_major: 100

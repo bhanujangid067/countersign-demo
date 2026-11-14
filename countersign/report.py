@@ -35,20 +35,27 @@ def decide(callers: dict, money: dict, approval: dict | None) -> str:
 def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
             role: str, approver: str, audit_id: str) -> str:
     api = callers["api"]
+    noun = money.get("noun", "refund")
+    nouns = noun + "s"
+    label = money.get("data_label")
     broken = [c for c in callers["callers"] if c["affected"]]
     badge = {"stopped": "🛑 **stopped**", "approved": "✅ **approved**", "all clear": "✅ **all clear**"}[verdict]
     lines = [MARKER, f"### countersign on the change to {api} — {badge}", ""]
 
     if money["passed"]:
-        lines.append(f"✅ **Money rules hold** — re-ran {money['replayed']:,} of last week's refunds, all correct")
+        lines.append(f"✅ **Money rules hold** — re-ran {money['replayed']:,} of last week's {nouns}, all correct")
     else:
         first = money["examples"][0]
-        sent = (f"refund sent **{inr(first['after_paise'])}**" if first["after_paise"] is not None
-                else f"**turned away** (old code sent {inr(first['before_paise'])})")
+        if first["after_paise"] is None:
+            example = f"paid **{inr(first['paid_paise'])}** → **turned away** (old code sent {inr(first['before_paise'])})"
+        elif first["after_paise"] > first["paid_paise"]:
+            example = f"paid **{inr(first['paid_paise'])}** → {noun} sent **{inr(first['after_paise'])}**"
+        else:
+            example = f"old code sent **{inr(first['before_paise'])}** → this change sends **{inr(first['after_paise'])}**"
         lines += [
             f"❌ **Money rule broken** — {first['rule']}",
-            f"Re-ran last week's refunds through this change: **{money['wrong']:,} of {money['replayed']:,}** wrong",
-            f"Example: paid **{inr(first['paid_paise'])}** → {sent}",
+            f"Re-ran last week's {nouns} through this change: **{money['wrong']:,} of {money['replayed']:,}** wrong",
+            f"Example: {example}",
         ]
         if money.get("not_sent_paise", 0) > 0:
             lines.append(f"In total: **{inr_short(money['not_sent_paise'])}** that went out last week would be turned away")
@@ -79,15 +86,15 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
     # Details for anyone who wants to look closer.
     lines += ["<details><summary>Details</summary>", ""]
     if money["examples"]:
-        lines += ["**Wrong refunds** (sample data, order ids masked)", "",
+        lines += [f"**Wrong {nouns}** ({label + ', ' if label else ''}ids masked)", "",
                   "| Order | Caller | Paid | Old code sent | This change sends |", "|---|---|---:|---:|---:|"]
         for e in money["examples"]:
             after = inr(e["after_paise"]) if e["after_paise"] is not None else "turned away"
             lines.append(f"| `{e['order']}` | {e['caller']} | {inr(e['paid_paise'])} | {inr(e['before_paise'])} | **{after}** |")
         lines.append("")
     if money.get("by_caller"):
-        lines += ["**Money affected, by app** (one week of sample data)", "",
-                  "| App | Wrong refunds | Too much sent | Turned away |", "|---|---:|---:|---:|"]
+        lines += [f"**Money affected, by app** (one week{' of ' + label if label else ''})", "",
+                  f"| App | Wrong {nouns} | Too much sent | Turned away |", "|---|---:|---:|---:|"]
         for name, app in money["by_caller"].items():
             lines.append(f"| {name} | {app['wrong']:,} | {inr_short(app['over_refund_paise'])} "
                          f"| {inr_short(app.get('not_sent_paise', 0))} |")
@@ -112,9 +119,9 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
         lines.append(f"Format check ({fc['tool']}): "
                      + ("no breaking changes found" if found == 0 else f"{found} breaking change(s)"))
         lines.append("")
-    lines += ["</details>", "",
-              f"Audit record `{audit_id}` · {ARTIFACT_LINK}", "",
-              "<sub>Countersign demo · one sample API and made-up sample data</sub>"]
+    lines += ["</details>", "", f"Audit record `{audit_id}` · {ARTIFACT_LINK}"]
+    if label:
+        lines += ["", f"<sub>Countersign demo · one sample API and made-up {label}</sub>"]
     return "\n".join(lines) + "\n"
 
 
@@ -170,8 +177,9 @@ def main() -> int:
             "reason": (approval.get("reason") or None) if approval else None,
         },
         "verdict": verdict,
-        "note": "Countersign demo on one sample API with made-up sample data.",
     }
+    if money.get("data_label"):
+        audit["note"] = f"Countersign demo on one sample API with made-up {money['data_label']}."
     write_json(args.out_dir / "audit.json", audit)
     text = comment(verdict, callers, money, approval, role, approver, audit_id)
     (args.out_dir / "comment.md").write_text(text)

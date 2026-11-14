@@ -2,8 +2,8 @@
 # Helpers for the live GitHub demo.
 #
 #   scripts/github_demo.sh setup   first time: push main and the demo branches, and open both PRs
-#   scripts/github_demo.sh fix     on stage: push the fix onto the PR (turns it green)
-#   scripts/github_demo.sh reset   after a rehearsal: put the PR back to the bad change
+#   scripts/github_demo.sh fix     during a walkthrough: push the fix onto the PR (turns it green)
+#   scripts/github_demo.sh reset   afterwards: put the PR back to the bad change
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

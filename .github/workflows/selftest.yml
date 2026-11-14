@@ -1,0 +1,48 @@
+# Tests of Countersign itself. Runs only when Countersign's own code changes, so it stays out of
+# the way of ordinary pull requests (those get the Countersign check in countersign.yml).
+name: Countersign self-tests
+
+on:
+  pull_request:
+    paths:
+      - "countersign/**"
+      - "countersign.yaml"
+      - "action.yml"
+      - "tests/**"
+      - "examples/**"
+      - "data/**"
+      - ".github/workflows/selftest.yml"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: selftest-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Countersign's own tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest tests -v
+
+  action:
+    name: The action, run on this pull request
+    runs-on: ubuntu-latest
+    steps:
+      # The action as this pull request has it, checking this pull request. It doesn't comment.
+      - uses: actions/checkout@v7
+        with:
+          path: action
+      - id: countersign
+        uses: ./action
+        with:
+          comment: "false"
+      - run: echo "Verdict from the action - ${{ steps.countersign.outputs.verdict }}"

@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: Payout API (sample)
+  version: 1.0.0
+paths:
+  /v1/payouts:
+    post:
+      operationId: createPayout
+      summary: Pay a merchant for one settlement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutRequest'
+      responses:
+        '201':
+          description: Payout sent to the bank
+components:
+  schemas:
+    PayoutRequest:
+      type: object
+      required: [settlement_id, gross]
+      properties:
+        settlement_id:
+          type: string
+        gross:
+          type: integer
+          description: What the merchant's customers paid, in paise (₹1 = 100 paise).
+          x-unit: paise

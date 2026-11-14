@@ -1,0 +1,12 @@
+# Money rules for payouts. Names you can use in a rule:
+#   reference  the amount from the replay data that rules compare with (here: what customers paid)
+#   asked      what the caller asked for
+#   before     what the old code (base branch) sent to the bank
+#   out        what the new code (this PR) sends to the bank
+rules:
+  - id: payout-not-more-than-collected
+    check: out <= reference
+    message: a payout can't be more than what the merchant's customers paid
+  - id: payout-unchanged
+    check: out == before
+    message: a payout must not change unless someone signs off

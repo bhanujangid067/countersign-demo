@@ -90,6 +90,10 @@ h1, h2, h3 { text-wrap: balance; }
 .switch a.on { border-color: var(--pen); color: var(--ink); font-weight: 600; }
 .proof { margin-top: 12px; font-size: 13.5px; color: var(--ink-2); }
 .proof b { color: var(--ink); }
+.hero { max-width: 760px; padding-top: 6px; }
+.hero h1 { font-size: 38px; line-height: 1.12; letter-spacing: -.025em; font-weight: 600; margin: 10px 0 14px; }
+.hero-go { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 0; }
+@media (max-width: 640px) { .hero h1 { font-size: 29px; } }
 .explain.reason { border-left: 3px solid var(--pen); padding-left: 12px; margin-top: 14px; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; margin-bottom: 22px; }
 .page-head h1 { font-size: 28px; line-height: 1.2; letter-spacing: -.02em; margin: 0; font-weight: 600; }
@@ -461,6 +465,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     </a>
     <div class="org"><b>Sample Payments Co.</b>Demo workspace with made-up data</div>
     <nav class="nav" aria-label="Main">
+      <a href="#/welcome" data-nav="welcome">Start here</a>
       <a href="#/overview" data-nav="overview">Overview</a>
       <a href="#/change" data-nav="change">Changes <span class="badge" id="navCount" hidden>1</span></a>
       <a href="#/audit" data-nav="audit">Audit log</a>
@@ -618,13 +623,13 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   }
 
   // ---------- router ----------
-  var routes = { overview: renderOverview, audit: renderAudit, how: renderHow };
+  var routes = { welcome: renderWelcome, overview: renderOverview, audit: renderAudit, how: renderHow };
   CHANGES.forEach(function (c) { routes[c.change.route] = renderChange; });
   function changeIndex(name) { for (var i = 0; i < CHANGES.length; i++) if (CHANGES[i].change.route === name) return i; return -1; }
-  function current() { return (location.hash.replace(/^#\/?/, "").split("?")[0]) || "overview"; }
+  function current() { return (location.hash.replace(/^#\/?/, "").split("?")[0]) || "welcome"; }
   function route() {
     var name = current();
-    if (!routes[name]) name = "overview";
+    if (!routes[name]) name = "welcome";
     var ix = changeIndex(name);
     if (ix >= 0 && ix !== CUR) {
       // One change is acted out at a time: don't swap while its checks are still running.
@@ -650,6 +655,46 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     var waiting = STATES.filter(function (st) { return st.phase === "stopped"; }).length;
     var badge = document.getElementById("navCount");
     badge.hidden = !waiting; badge.textContent = waiting;
+  }
+
+  // ---------- Start here ----------
+  // The first page a visitor sees: what Countersign is, with the catch itself, before the product screens.
+  var REPO = "https://github.com/bhanujangid067/countersign-demo";
+  function renderWelcome() {
+    var bad = CHANGES[0].bad, ex = bad.money.wrong[0], second = CHANGES[1];
+    view.innerHTML =
+      '<div class="hero">' +
+        '<div class="eyebrow">Maker–checker, for code that moves money</div>' +
+        '<h1>A second signature before a code change that moves money goes live.</h1>' +
+        '<p class="lede">Countersign runs on every pull request. It replays last week\'s payments through the old code and the new code. If the money comes out different, it stops the change, shows the exact payment, and waits for a named person to sign.</p>' +
+      '</div>' +
+      '<section class="sheet sheet-b" style="margin-top:22px">' +
+        '<div class="eyebrow">One change. Every unit test passed.</div>' +
+        '<div class="receipt" style="margin-top:10px"><div><div class="lbl">Customer paid</div><div class="amt">' + inr(ex[3]) + '</div></div><div class="arrow">→</div>' +
+          '<div><div class="lbl">The change would refund</div><div class="amt over">' + inr(ex[5]) + '</div></div>' +
+          '<div class="note">' + n(bad.money.wrong.length) + ' of ' + n(bad.money.replayed) + ' refunds wrong<br>' + crore(bad.money.over_refund_paise) + ' too much in one week of sample data</div></div>' +
+        '<p class="explain">A developer made <code>amount</code> mean rupees instead of paise and updated the mobile app. Two other apps still send paise. The tests agree with the bug, because the same developer wrote them. Last week\'s traffic doesn\'t.</p>' +
+        '<p class="hero-go"><button class="btn primary" type="button" data-play="#/change?play=fix">Watch Countersign catch it' + ICON.arrow + '</button>' +
+          (second ? '<button class="btn" type="button" data-play="#/' + second.change.route + '?play=approve">Watch a change get signed' + ICON.arrow + '</button>' : "") +
+          '<a class="btn" href="#/how">How it works</a></p>' +
+      '</section>' +
+      '<div class="three">' +
+        welcomeCard("Who will break?", "It works out what every app really sends, from recorded requests and from code, and names the ones the change breaks. Nobody labels anything.") +
+        welcomeCard("Is the money right?", "It replays real past payments through both versions of the code and checks money rules, such as: a refund can\'t be more than what was paid.") +
+        welcomeCard("Who signs off?", "A risky change waits for a named person. Their approval counts for one exact commit, and their reason is kept in an audit record.") +
+      '</div>' +
+      '<section class="sheet sheet-b" style="margin-top:18px"><h2 style="margin:0 0 6px;font-size:17px">Try it on your own repo</h2>' +
+        '<p class="explain" style="margin-top:0">Countersign is a GitHub Action. It runs inside your own CI, so code and payment data never leave your company. You give it your handler, a masked copy of last week\'s payments, and your money rules.</p>' +
+        '<p style="margin:12px 0 0"><a class="btn" href="' + REPO + '#use-it-on-your-own-repo" target="_blank" rel="noopener">Setup guide on GitHub' + ICON.arrow + '</a></p></section>' +
+      '<section class="sheet sheet-b" style="margin-top:18px"><b>About this site.</b> <span class="muted">It is a walkthrough on one sample refund API with made-up data. The people and the payment company are made up too. Every number comes from really running the checks on that sample.</span></section>';
+    view.querySelectorAll("[data-play]").forEach(function (b) {
+      // Autoplay is read when the page loads, so load the page again at the new address.
+      b.onclick = function () { location.hash = b.getAttribute("data-play"); location.reload(); };
+    });
+    updateNav();
+  }
+  function welcomeCard(title, text) {
+    return '<section class="sheet how"><h3>' + title + '</h3><p>' + text + '</p></section>';
   }
 
   // ---------- Overview ----------

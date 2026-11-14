@@ -1,0 +1,122 @@
+name: Countersign
+description: >-
+  A second signature before a code change that moves money goes live. Replays last week's
+  payments through the old and new code, names the callers that break, and stops the pull
+  request until a named person approves that exact commit.
+branding:
+  icon: check-circle
+  color: orange
+
+inputs:
+  github-token:
+    description: Token used to read reviews and to post the comment, label and review request.
+    default: ${{ github.token }}
+  checkout:
+    description: >-
+      "true": check out the base branch into ./base and the PR into ./head.
+      "false": you have already done that.
+    default: "true"
+  comment:
+    description: '"false" runs the checks and saves the audit record without posting on the pull request.'
+    default: "true"
+  python-version:
+    description: Python used to run Countersign and your handler.
+    default: "3.11"
+  requirements:
+    description: A requirements file in your base branch that your handler needs. Leave empty for none.
+    default: ""
+
+outputs:
+  verdict:
+    description: '"all clear", "approved" or "stopped".'
+    value: ${{ steps.verdict.outputs.verdict }}
+
+runs:
+  using: composite
+  steps:
+    - name: Get the old code (base branch)
+      if: inputs.checkout == 'true'
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.base.sha }}
+        path: base
+    - name: Get the new code (this PR)
+      if: inputs.checkout == 'true'
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        path: head
+    - uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install what Countersign needs
+      shell: bash
+      run: |
+        pip install -q pyyaml
+        if [ -n "${{ inputs.requirements }}" ]; then pip install -q -r "base/${{ inputs.requirements }}"; fi
+        # oasdiff: the free, open-source API diff tool used for the format check. Optional.
+        curl -fsSL -o /tmp/oasdiff.tar.gz \
+          https://github.com/oasdiff/oasdiff/releases/download/v1.34.1/oasdiff_1.34.1_linux_amd64.tar.gz \
+          && tar -xzf /tmp/oasdiff.tar.gz -C /tmp oasdiff && sudo mv /tmp/oasdiff /usr/local/bin/oasdiff \
+          || echo "::notice::oasdiff not installed; the format check is skipped"
+
+    # Countersign's code comes from this action. The config, rules, replay data and gateway log
+    # come from the base branch, so a pull request can't weaken the checks on itself.
+    - name: "Check 1: who will break?"
+      shell: bash
+      working-directory: base
+      env:
+        PYTHONPATH: ${{ github.action_path }}
+      run: python -m countersign.check_callers --base . --head ../head --out ../out/callers.json
+
+    - name: "Check 2: is the money right?"
+      shell: bash
+      working-directory: base
+      env:
+        PYTHONPATH: ${{ github.action_path }}
+      run: python -m countersign.check_money --base . --head ../head --out ../out/money.json || [ -f ../out/money.json ]
+
+    - name: "Check 3: who signs off?"
+      shell: bash
+      working-directory: base
+      env:
+        PYTHONPATH: ${{ github.action_path }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        python -m countersign.github approval --head-sha "$HEAD_SHA" --out ../out/approval.json
+        python -m countersign.report \
+          --callers ../out/callers.json --money ../out/money.json --approval ../out/approval.json \
+          --out-dir ../out --pr "$PR_NUMBER" --commit "$HEAD_SHA" --repo "$GITHUB_REPOSITORY" || [ -f ../out/verdict.txt ]
+
+    - name: Save the audit record
+      id: audit
+      uses: actions/upload-artifact@v7
+      with:
+        name: countersign-audit-pr${{ github.event.pull_request.number }}-run${{ github.run_id }}-${{ github.run_attempt }}
+        path: out/
+
+    - name: Post the PR comment
+      if: inputs.comment == 'true'
+      shell: bash
+      working-directory: base
+      env:
+        PYTHONPATH: ${{ github.action_path }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: >
+        python -m countersign.github publish --comment ../out/comment.md --verdict ../out/verdict.txt
+        --audit-link "[download](${{ steps.audit.outputs.artifact-url }}) · artifact id ${{ steps.audit.outputs.artifact-id }}"
+
+    - name: Countersign result
+      id: verdict
+      shell: bash
+      run: |
+        verdict=$(cat out/verdict.txt)
+        echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+        echo "Countersign: $verdict"
+        if [ "$verdict" = "stopped" ]; then
+          echo "::error::Stopped by Countersign. Fix the change or get approval from the named approver."
+          exit 1
+        fi

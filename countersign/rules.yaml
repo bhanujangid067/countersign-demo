@@ -5,6 +5,7 @@
 #   refund_asked   the refund that was asked for last week (paise)
 #   refund_before  what the old code (base branch) sent to the bank (paise)
 #   refund_out     what the new code (this PR) sends to the bank (paise)
+# The same four values also have short names that suit any API: reference, asked, before, out.
 rules:
   - id: refund-not-more-than-paid
     check: refund_out <= paid

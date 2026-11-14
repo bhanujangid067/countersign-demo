@@ -54,12 +54,15 @@ def request_fields(spec: dict) -> dict:
     return found
 
 
+UNITS = ("paise", "rupees")  # set from countersign.yaml in main()
+
+
 def unit_of(field: dict) -> str | None:
     """The unit a field is counted in: our x-unit tag, or a guess from its description."""
     if field.get("x-unit"):
         return field["x-unit"]
     text = (field.get("description") or "").lower()
-    for unit in ("paise", "rupees"):
+    for unit in UNITS:
         if unit in text:
             return unit
     return None
@@ -131,7 +134,11 @@ def main() -> int:
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
 
-    config = load_config()
+    global UNITS
+    config = load_config(args.base)
+    money = config["money"]
+    UNITS = (money["minor_unit"], money["major_unit"])
+    nouns = money["noun"] + "s"
     base_spec, head_spec = args.base / config["spec"], args.head / config["spec"]
     base, head = load_yaml(base_spec), load_yaml(head_spec)
     head_ops = request_fields(head)
@@ -139,8 +146,8 @@ def main() -> int:
 
     changes = changed_fields(base, head)
     # Evidence comes from the base branch: the PR being checked can't edit it.
-    refunds = read_refunds(args.base / config["replay_data"])
-    ledger = {row["order_id"]: row["refund_paise"] for row in refunds}
+    refunds = read_refunds(args.base / config["replay_data"], money)
+    ledger = {row["id"]: row["asked"] for row in refunds}
     log = read_gateway_log(args.base / config["gateway_log"])
     in_repo = config.get("clients_in_repo") or {}
 
@@ -156,7 +163,7 @@ def main() -> int:
             new_build = request_builder(entry, args.head, config, ledger)
             old_requests = [old_build(row) for row in mine[:5]]
             new_requests = [new_build(row) for row in mine[:5]]
-            seen = unit_sent(new_requests, ledger)
+            seen = unit_sent(new_requests, ledger, money)
             fields_sent = {key for request in new_requests for key in request}
             if entry["caller"] in in_repo:
                 evidence = f"its code in this repo ({in_repo[entry['caller']].split(':')[0]})"
@@ -184,7 +191,7 @@ def main() -> int:
             over = sum(1 for row in mine if new_build(row)[name] > limit) if limit is not None else 0
             if over:
                 affected = True
-                reason = f"{over} of its refunds last week were above the new limit"
+                reason = f"{over} of its {nouns} last week were above the new limit"
                 break
             reason = f"updated to {sends} in this change" if old_requests != new_requests else "works as before"
         callers.append({
