@@ -24,3 +24,9 @@ def test_rejects_zero():
 def test_rejects_text_amount():
     with pytest.raises(ValueError):
         create_refund({"order_id": "ord_test04", "amount": "900"})
+
+
+def test_refund_above_one_lakh_needs_manual_review():
+    with pytest.raises(ValueError):
+        create_refund({"order_id": "ord_test05", "amount": 10000001})
+    assert create_refund({"order_id": "ord_test06", "amount": 10000000})["status"] == "sent_to_bank"
