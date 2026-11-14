@@ -57,7 +57,7 @@ It also writes a one-page **dashboard** (like the report's mock-up) from the sam
 
 Open `site/index.html` in any browser. It works offline. It starts with a one-page introduction, then shows Countersign as a product: an overview, change #482 (the mistake) and change #483 (the decision) with all three checks animating, an audit log for both, and a plain-English "How it works" page.
 
-Click any app in Check 1 or any refund in Check 2 to open a side panel with the evidence: the request the app sent, what the old and new code do with it, and the rule it breaks. "And 885 more" opens all the wrong refunds, with a filter per app. The audit log also holds a few earlier records, marked **sample**: those are illustrations, not real runs.
+Click any app in Check 1 or any refund in Check 2 to open a side panel with the evidence: the request the app sent, what the old and new code do with it, and the rule it breaks. "And 885 more" opens all the wrong refunds, with a filter per app. The audit log also holds earlier records for five other changes, marked **sample**: those are illustrations, not real runs. The team list in the left panel follows the story: it shows what Countersign, the developer and the payments lead are each doing.
 
 On the change page, use the buttons or keys: **R** run Countersign · **F** developer pushes a fix · **A** payments lead approves · **M** merge · **0** start again. Merging is blocked (with the reason shown) until the change is fixed or approved. Switch between the two changes with the tabs at the top of the change page. Change #483 has no fix button: the only way forward is the payments lead's signature.
 

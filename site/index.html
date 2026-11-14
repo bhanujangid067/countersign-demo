@@ -70,15 +70,43 @@ h1, h2, h3 { text-wrap: balance; }
 .brand:hover { text-decoration: none; }
 .org { padding: 0 6px; font-size: 13px; color: var(--muted); line-height: 1.4; }
 .org b { display: block; color: var(--ink); font-weight: 600; font-size: 14px; }
-.nav { display: flex; flex-direction: column; gap: 1px; }
+.nav { display: flex; flex-direction: column; gap: 1px; position: relative; }
+/* The marker behind the current page slides from one link to the next. */
+.nav-pill { position: absolute; left: 0; top: 0; width: 0; height: 0; border-radius: 6px; background: var(--sheet); box-shadow: inset 0 0 0 1px var(--rule);
+  transition: transform .32s cubic-bezier(.3, 1.25, .5, 1), width .32s cubic-bezier(.3, 1.25, .5, 1), height .2s; pointer-events: none; opacity: 0; }
+.nav-pill.ready { opacity: 1; }
+.nav a { position: relative; }
 .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); font-weight: 500; font-size: 14.5px; }
 .nav a:hover { background: var(--tint); text-decoration: none; }
-.nav a.on { background: var(--sheet); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--rule); }
+.nav a.on { color: var(--ink); font-weight: 600; }
+.nav a.on:hover { background: none; }
 .nav .badge { margin-left: auto; min-width: 20px; text-align: center; font-size: 12px; font-weight: 600; padding: 0 6px; border-radius: 10px; background: var(--stop); color: var(--sheet); }
 .team { display: flex; flex-direction: column; gap: 10px; padding: 0 6px; }
 .team h4 { margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .who { display: flex; align-items: center; gap: 10px; font-size: 13.5px; line-height: 1.3; }
 .who span { color: var(--muted); font-size: 12.5px; display: block; }
+/* The team list is live: what each person (and Countersign) is doing follows the story. */
+.who > div:last-child { min-width: 0; }
+.who .doing { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who .doing.swap { animation: swap .38s cubic-bezier(.2, .7, .2, 1); }
+.who .doing.now { color: var(--ink-2); }
+.who .doing.ask { color: var(--stop); font-weight: 500; }
+.who .av { position: relative; }
+.who .av.wait::after { content: ""; position: absolute; right: -2px; top: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--stop); box-shadow: 0 0 0 2px var(--paper); animation: beat 1.6s ease-in-out infinite; }
+.who .av.bot { color: var(--paper); }
+.who .av.bot .logo-mark { display: block; }
+@keyframes swap { from { opacity: 0; transform: translateY(7px); } }
+@keyframes beat { 50% { transform: scale(1.45); opacity: .55; } }
+/* The panel's parts come in one after another when the page opens. */
+.rail > * { animation: railin .5s cubic-bezier(.2, .7, .2, 1) both; }
+.rail > *:nth-child(2) { animation-delay: .06s; } .rail > *:nth-child(3) { animation-delay: .12s; }
+.rail > *:nth-child(4) { animation-delay: .18s; } .rail > *:nth-child(5) { animation-delay: .24s; }
+@keyframes railin { from { opacity: 0; transform: translateX(-10px); } }
+/* What the right-hand panel holds comes in a beat after the panel itself. */
+body.drawer-open .drawer-b > * { animation: arrive .34s cubic-bezier(.2, .7, .2, 1) both; }
+body.drawer-open .drawer-b > *:nth-child(1) { animation-delay: .08s; } body.drawer-open .drawer-b > *:nth-child(2) { animation-delay: .12s; }
+body.drawer-open .drawer-b > *:nth-child(3) { animation-delay: .16s; } body.drawer-open .drawer-b > *:nth-child(4) { animation-delay: .20s; }
+body.drawer-open .drawer-b > *:nth-child(5) { animation-delay: .24s; } body.drawer-open .drawer-b > *:nth-child(n+6) { animation-delay: .28s; }
 .rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 0 6px; font-size: 12px; color: var(--muted); line-height: 1.45; }
 .theme-btn { align-self: flex-start; border: 1px solid var(--rule-2); background: var(--sheet); color: var(--ink-2); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12.5px; }
 
@@ -100,7 +128,7 @@ h1, h2, h3 { text-wrap: balance; }
 .mark-busy .hk1 { animation: breathe1 1.5s ease-in-out infinite; }
 .mark-busy .hk2 { animation: breathe2 1.5s ease-in-out infinite; }
 .mark-busy .spk { animation: glow 1.5s ease-in-out infinite; }
-.brand:hover .spk, .hero-mark:hover .spk { animation: turn .7s cubic-bezier(.3, 1.4, .5, 1); }
+.brand:hover .spk { animation: turn .7s cubic-bezier(.3, 1.4, .5, 1); }
 @keyframes hk1 { from { transform: translateY(-16%); opacity: 0; } }
 @keyframes hk2 { from { transform: translateY(16%); opacity: 0; } }
 @keyframes spk { from { transform: scale(0) rotate(-60deg); opacity: 0; } }
@@ -164,9 +192,7 @@ body.drawer-open { overflow: hidden; }
 .linkish:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .hero { max-width: 760px; padding-top: 6px; }
-.hero-wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: center; }
-.hero-mark { color: var(--ink); margin-right: 24px; }
-@media (max-width: 1120px) { .hero-mark { display: none; } .hero-wrap { grid-template-columns: minmax(0, 1fr); } }
+
 .hero h1 { font-size: 38px; line-height: 1.12; letter-spacing: -.025em; font-weight: 600; margin: 10px 0 14px; }
 .hero-go { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 0; }
 @media (max-width: 640px) { .hero h1 { font-size: 29px; } }
@@ -543,6 +569,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     </a>
     <div class="org"><b>Sample Payments Co.</b>Demo workspace with made-up data</div>
     <nav class="nav" aria-label="Main">
+      <span class="nav-pill" id="navPill" aria-hidden="true"></span>
       <a href="#/welcome" data-nav="welcome">Start here</a>
       <a href="#/overview" data-nav="overview">Overview</a>
       <a href="#/change" data-nav="change">Changes <span class="badge" id="navCount" hidden>1</span></a>
@@ -656,6 +683,49 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
       '<path class="spk" fill="var(--spark)" d="' + MARK[2] + '"/></svg>';
   }
 
+  // ---------- the left panel ----------
+  // The marker slides to the current page.
+  function movePill() {
+    var pill = document.getElementById("navPill"), on = document.querySelector(".nav a.on");
+    if (!on) { pill.classList.remove("ready"); return; }
+    pill.style.transform = "translate(" + on.offsetLeft + "px, " + on.offsetTop + "px)";
+    pill.style.width = on.offsetWidth + "px"; pill.style.height = on.offsetHeight + "px";
+    if (!pill.classList.contains("ready")) { pill.style.transition = "none"; void pill.offsetWidth; pill.classList.add("ready"); pill.style.transition = ""; }
+  }
+  window.addEventListener("resize", movePill);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(movePill);
+
+  // The team list says what everyone is doing right now, Countersign included.
+  (function () {
+    var team = document.querySelector(".team"), rows = team.querySelectorAll(".who");
+    rows[0].querySelector("span").id = "doDev"; rows[1].querySelector("span").id = "doLead";
+    rows[0].querySelector(".av").id = "avDev"; rows[1].querySelector(".av").id = "avLead";
+    var bot = document.createElement("div");
+    bot.className = "who";
+    bot.innerHTML = '<div class="av bot" id="avBot">' + mark(17) + '</div><div>Countersign<span id="doBot"></span></div>';
+    team.insertBefore(bot, rows[0]);
+    ["doDev", "doLead", "doBot"].forEach(function (id) { document.getElementById(id).classList.add("doing"); });
+  })();
+  function say(id, text, cls) {
+    var el = document.getElementById(id);
+    if (el.textContent !== text) { el.textContent = text; el.classList.remove("swap"); void el.offsetWidth; el.classList.add("swap"); }
+    el.className = "doing" + (el.classList.contains("swap") ? " swap" : "") + (cls ? " " + cls : "");
+  }
+  function updateRail() {
+    // The change something happened to most recently.
+    var order = STATES.map(function (st, i) { return i; }).sort(function (a, b) { return STATES[b].activity[0].t - STATES[a].activity[0].t; });
+    var num = function (i) { return "#" + CHANGES[i].change.number; };
+    var first = function (test) { for (var k = 0; k < order.length; k++) if (test(STATES[order[k]])) return order[k]; return -1; };
+    var running = first(function (st) { return st.phase === "running"; }), stopped = first(function (st) { return st.phase === "stopped"; });
+    var signed = first(function (st) { return st.phase === "approved" || (st.phase === "merged" && st.mergedFrom === "approved"); });
+    var top = STATES[order[0]], topNum = num(order[0]);
+
+    document.querySelector("#avBot .logo-mark").classList.toggle("mark-busy", running >= 0);
+    say("doBot", running >= 0 ? "Checking " + num(running) + "…" : stopped >= 0 ? "Stopped " + num(stopped) : top.phase === "clear" ? "All clear on " + topNum : "Watching " + D.api, running >= 0 || stopped >= 0 ? "now" : "");
+    say("doDev", top.phase === "merged" ? "Merged " + topNum : top.version === "fix" ? "Pushed a fix to " + topNum : top.phase === "stopped" ? "Waiting on " + topNum : "Developer", top.phase === "merged" || top.version === "fix" ? "now" : "");
+    document.getElementById("avLead").classList.toggle("wait", stopped >= 0);
+    say("doLead", stopped >= 0 ? "Asked to sign " + num(stopped) : signed >= 0 ? "Signed " + num(signed) : "Payments lead", stopped >= 0 ? "ask" : signed >= 0 ? "now" : "");
+  }
   // ---------- the side panel ----------
   var drawerEl = document.getElementById("drawer"), drawerFrom = null;
   function openDrawer(eyebrow, title, body) {
@@ -773,6 +843,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     var waiting = STATES.filter(function (st) { return st.phase === "stopped"; }).length;
     var badge = document.getElementById("navCount");
     badge.hidden = !waiting; badge.textContent = waiting;
+    updateRail(); movePill();
   }
 
   // ---------- Start here ----------
@@ -785,7 +856,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         '<div class="eyebrow">Maker–checker, for code that moves money</div>' +
         '<h1>A second signature before a code change that moves money goes live.</h1>' +
         '<p class="lede">Countersign runs on every pull request. It replays last week\'s payments through the old code and the new code. If the money comes out different, it stops the change, shows the exact payment, and waits for a named person to sign.</p>' +
-      '</div>' + mark(150, "hero-mark mark-in") + '</div>' +
+      '</div></div>' +
       '<section class="sheet sheet-b" style="margin-top:22px">' +
         '<div class="eyebrow">One change. Every unit test passed.</div>' +
         '<div class="receipt" style="margin-top:10px"><div><div class="lbl">Customer paid</div><div class="amt">' + inr(ex[3]) + '</div></div><div class="arrow">→</div>' +
@@ -1348,27 +1419,36 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
       pull_request: o.number, title: o.title, branch: o.branch, commit: o.commit, author: o.by.name, api: D.api,
       checks_run: {
         normal_tests: "passed (" + o.tests + " tests)",
-        who_will_break: { passed: !o.affected, callers_checked: 8, callers_affected: o.affected ? [o.affected] : [] },
-        is_the_money_right: { passed: !o.wrong, replayed: o.replayed, wrong: o.wrong || 0, turned_away: o.wrong || 0 }
+        who_will_break: { passed: !o.breaks, callers_checked: 8, callers_affected: o.breaks || [], finding: o.callersFinding || null },
+        is_the_money_right: { passed: !o.wrong, replayed: o.replayed, wrong: o.wrong || 0, wrong_label: o.wrongLabel || "wrong", finding: o.moneyFinding || null }
       },
-      finding: o.finding || null,
-      sign_off: { needed: !!o.wrong, approver_role: ROLE, approved_by: o.reason ? LEAD.name + " (" + ROLE + ")" : null,
-        approved_at: o.reason ? iso(o.signedAt) : null, reason: o.reason || null },
-      verdict: o.verdict,
+      sign_off: { needed: !!(o.wrong || o.breaks), approver_role: ROLE, approved_by: o.reason ? LEAD.name + " (" + ROLE + ")" : null,
+        approved_at: o.reason ? iso(o.at) : null, reason: o.reason || null },
+      verdict: o.verdict, what_happened_next: o.next || null,
       merged: o.verdict === "merged" ? { into: "main", by: o.by.name, at: iso(o.at) } : undefined,
       note: "Sample history. An illustration of an earlier record, not a real run of the checks."
     };
   }
-  var late = { number: 474, title: "Refund API: no refunds on orders older than 180 days", branch: "refund-window", commit: "c41e9a7", by: KAVYA, tests: 5,
-    replayed: 4098, wrong: 31, affected: "Support tool",
-    finding: "31 refunds that went out that week (₹2.1 lakh in all) were for orders older than 180 days, so the new code would turn them away. All 31 came from the support tool.",
-    reason: "Intended. This is the refund policy that started on 1 November. Support has been told.", signedAt: ago(6, 15, 12) };
+  // Five different changes, so the log shows the kinds of thing Countersign decides.
   var PAST = [
-    pastRecord({ number: 479, title: "Refund API: retry a bank timeout once", branch: "retry-timeouts", commit: "9d2f0b4", by: DEV, tests: 6, replayed: 4163, verdict: "merged", at: ago(2, 11, 40) }),
-    pastRecord(Object.assign({}, late, { verdict: "merged", at: ago(6, 15, 31) })),
-    pastRecord(Object.assign({}, late, { verdict: "approved", at: ago(6, 15, 12) })),
-    pastRecord(Object.assign({}, late, { verdict: "stopped", at: ago(6, 14, 3), reason: null })),
-    pastRecord({ number: 471, title: "Refund API: add a reason code to each refund", branch: "reason-codes", commit: "5b7a1e2", by: DEV, tests: 4, replayed: 4212, verdict: "merged", at: ago(9, 17, 22) })
+    pastRecord({ number: 479, title: "Refund API: retry a bank timeout once", branch: "retry-timeouts", commit: "9d2f0b4", by: DEV, tests: 6,
+      replayed: 4163, verdict: "merged", at: ago(2, 11, 40) }),
+    pastRecord({ number: 477, title: "Refund API: round partial refunds to whole rupees", branch: "round-partials", commit: "e03c7d1", by: KAVYA, tests: 7,
+      replayed: 4131, wrong: 612, wrongLabel: "changed", verdict: "stopped", at: ago(4, 16, 48),
+      moneyFinding: "612 partial refunds came out up to 50 paise different from what the old code sent: ₹148.50 less for customers in all. Full refunds were not affected.",
+      next: "Kavya withdrew the change. Rounding now happens in the app, before the request is sent." }),
+    pastRecord({ number: 474, title: "Refund API: no refunds on orders older than 180 days", branch: "refund-window", commit: "c41e9a7", by: KAVYA, tests: 5,
+      replayed: 4098, wrong: 31, wrongLabel: "turned away", breaks: ["Support tool"], verdict: "approved", at: ago(6, 15, 12),
+      callersFinding: "The support tool sent every one of the refunds this change turns away.",
+      moneyFinding: "31 refunds that went out that week (₹2.1 lakh in all) were for orders older than 180 days, so the new code turns them away.",
+      reason: "Intended. This is the refund policy that started on 1 November. Support has been told." }),
+    pastRecord({ number: 472, title: "Refund API: rename order_id to order_ref", branch: "order-ref", commit: "71ab3f9", by: DEV, tests: 4,
+      replayed: 4187, wrong: 871, wrongLabel: "turned away", breaks: ["Merchant dashboard", "Partner shopping app"], verdict: "stopped", at: ago(8, 10, 5),
+      callersFinding: "Both apps belong to other teams and still send order_id. The mobile app was updated in the same change. The format check (oasdiff) flagged this one too.",
+      moneyFinding: "Every refund from those two apps, 871 of them (₹1.7 crore in all), would be turned away because the new code can't find the order.",
+      next: "Rohan pushed a fix the same morning: the API accepts both names until the other teams move over." }),
+    pastRecord({ number: 471, title: "Refund API: add a reason code to each refund", branch: "reason-codes", commit: "5b7a1e2", by: DEV, tests: 4,
+      replayed: 4212, verdict: "all clear", at: ago(9, 17, 22) })
   ];
   function shortDate(d) { return d.toLocaleDateString([], { day: "numeric", month: "short" }); }
 
@@ -1385,7 +1465,9 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
       : '<p>This change was risky, so it needs the ' + esc(so.approver_role) + '\'s approval. Countersign asked ' + LEAD.name + ' to review.</p>';
     var out = a.verdict === "stopped" ? "Stopped. The change could not be merged."
       : a.verdict === "approved" ? "Approved by the " + so.approver_role + ". The change could be merged."
+      : a.verdict === "all clear" ? "All clear. The change could be merged."
       : "Merged into <span class=\"ref\">main</span> by " + esc(a.author) + " at " + clock(at) + (signed ? ", with the " + so.approver_role + "'s countersignature." : ", after every check passed.");
+    if (a.what_happened_next) out += " " + esc(a.what_happened_next);
     return '<article class="sheet doc">' +
       '<header class="doc-h"><div class="lh">' + mark(36) + '<div><b>Countersign</b><span>Audit record</span></div></div><div class="stamp' + stampCls + '">' + vl[0] + '</div></header>' +
       '<div class="doc-id">Record <code>' + esc(a.audit_id) + '</code> · ' + longDate(at) + ' <span class="sample">sample</span></div>' +
@@ -1396,10 +1478,10 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         '<dt>Branch</dt><dd><span class="ref">' + esc(a.branch) + '</span> into <span class="ref">main</span></dd>' +
         '<dt>Checked by</dt><dd>Countersign, in the company\'s own CI</dd></dl>' +
       docSection(1, "Normal tests", '<span class="res ok">Passed</span>', '<p>' + esc(a.checks_run.normal_tests.replace("passed (", "All ").replace(" tests)", "")) + ' of the team\'s own unit tests passed.</p>') +
-      docSection(2, "Who will break?", c.passed ? '<span class="res ok">No apps break</span>' : '<span class="res warn">1 of 8 apps affected</span>',
-        '<p>' + (c.passed ? "None of the 8 apps that call " + esc(a.api) + " break." : esc(c.callers_affected[0]) + " is affected. The other 7 apps work as before.") + '</p>') +
-      docSection(3, "Is the money right?", m.passed ? '<span class="res ok">All correct</span>' : '<span class="res no">' + n(m.wrong) + ' turned away</span>',
-        '<p>Replayed ' + n(m.replayed) + ' refunds from the week before through the old code and this change. ' + (m.passed ? "Every one came out right." : esc(a.finding)) + '</p>') +
+      docSection(2, "Who will break?", c.passed ? '<span class="res ok">No apps break</span>' : '<span class="res warn">' + c.callers_affected.length + ' of 8 apps affected</span>',
+        '<p>' + (c.passed ? "None of the 8 apps that call " + esc(a.api) + " break." : esc(c.callers_affected.join(" and ")) + (c.callers_affected.length === 1 ? " is" : " are") + " affected. " + esc(c.finding || "")) + '</p>') +
+      docSection(3, "Is the money right?", m.passed ? '<span class="res ok">All correct</span>' : '<span class="res no">' + n(m.wrong) + ' ' + esc(m.wrong_label) + '</span>',
+        '<p>Replayed ' + n(m.replayed) + ' refunds from the week before through the old code and this change. ' + (m.passed ? "Every one came out right." : esc(m.finding)) + '</p>') +
       docSection(4, "Sign-off", !so.needed ? '<span class="res ok">Not needed</span>' : signed ? '<span class="res signed">Signed</span>' : '<span class="res no">Waiting</span>', s4) +
       docSection(5, "Outcome", '<span class="res ' + (vl[1] === "stop" ? "no" : vl[1] === "clear" ? "ok" : "signed") + '">' + vl[0] + '</span>', '<p>' + out + '</p>') +
       '<footer class="doc-foot"><span><b>Sample history.</b> This earlier record is an illustration of what the log holds. It was not produced by a real run of the checks. The people, payments and companies are made up.</span>' +
