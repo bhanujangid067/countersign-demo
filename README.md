@@ -194,6 +194,15 @@ The method isn't tied to money. Countersign replays real past requests through t
 
 We are starting with APIs that move money, because that is where one wrong change costs the most. Today's build reflects that: its rules compare amounts, and the two sample APIs are refunds and payouts. Other kinds of API come next.
 
+| When | What |
+|---|---|
+| Now | All three checks run on pull requests, on two sample APIs: refunds and payouts. |
+| Next | One real payments team runs it on a masked copy of their own data. |
+| Then | Services in any language, more than one endpoint, and currencies other than rupees. |
+| Later | APIs that don't move money. |
+
+Only the first row works today. The rest is planned.
+
 ---
 
 ## The three branches
