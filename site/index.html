@@ -584,6 +584,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   .counter { padding: 10px 12px; }
   th, td { padding: 9px 12px; }
   .flow { flex-direction: column; }
+  .flow .box { flex: none; }
   .flow .arr { width: auto; height: 24px; transform: rotate(90deg); }
   .analogy { grid-template-columns: minmax(0, 1fr); }
   .thread::before { left: 14px; }
@@ -971,7 +972,8 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         '<p class="explain" style="margin-top:0">Countersign is a GitHub Action. It runs inside your own CI, so code and payment data never leave your company. You give it your handler, a masked copy of last week\'s payments, and your money rules.</p>' +
         '<p style="margin:12px 0 0"><a class="btn" href="' + REPO + '#use-it-on-your-own-repo" target="_blank" rel="noopener">Setup guide on GitHub' + ICON.arrow + '</a></p></section>' +
       '<section class="sheet sheet-b" style="margin-top:18px"><h2 style="margin:0 0 6px;font-size:17px">Money first. Other APIs next.</h2>' +
-        '<p class="explain" style="margin-top:0">The method isn\'t tied to money. Countersign replays real past requests through the old code and the new code, checks rules on what comes out, and has a named person sign for anything risky. That works for any API. We are starting with APIs that move money, because that is where one wrong change costs the most. Other kinds of API come next.</p></section>' +
+        '<p class="explain" style="margin-top:0">The method isn\'t tied to money. Countersign replays real past requests through the old code and the new code, checks rules on what comes out, and has a named person sign for anything risky. That works for any API. We are starting with APIs that move money, because that is where one wrong change costs the most. Other kinds of API come next.</p>' +
+        '<p style="margin:12px 0 0"><a class="btn" href="#/how">See the roadmap' + ICON.arrow + '</a></p></section>' +
       '<section class="sheet sheet-b" style="margin-top:18px"><b>About this site.</b> <span class="muted">It is a walkthrough on one sample refund API with made-up data. The people and the payment company are made up too. Every number comes from really running the checks on that sample, except the earlier records in the audit log, which are marked as samples.</span></section>';
     view.querySelectorAll("[data-play]").forEach(function (b) {
       // Autoplay is read when the page loads, so load the page again at the new address.
@@ -1769,8 +1771,12 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
         '<p class="explain"><b>A mistake.</b> Change #' + CHANGES[0].change.number + ' would send ' + crore(bad.money.over_refund_paise) + ' too much. Nobody should sign that. The developer fixes it, and the checks go green.</p>' +
         '<p class="explain"><b>A decision.</b> Change #' + second.change.number + ' sends refunds above ₹1,00,000 to manual review, because finance asked. It turns away ' + n(second.bad.money.wrong.length) + ' of last week\'s refunds, ' + big(second.bad.money.not_sent_paise) + ' in all. That is the point of the change, so there is nothing to fix. The payments lead reads the numbers, signs that exact commit and gives her reason. All of it goes in the audit record.</p>' +
         '<p style="margin:12px 0 0"><a class="btn" href="#/' + second.change.route + '">See the decision on change #' + second.change.number + ICON.arrow + '</a></p></section>' : "") +
-      '<section class="sheet sheet-b" style="margin-top:18px"><h2 style="margin:0 0 6px;font-size:17px">Money first. Other APIs next.</h2>' +
-        '<p class="explain" style="margin-top:0">The method isn\'t tied to money. Countersign replays real past requests through the old code and the new code, checks rules on what comes out, and has a named person sign for anything risky. That works for any API. We are starting with APIs that move money, because that is where one wrong change costs the most. Other kinds of API come next.</p></section>' +
+      '<section class="sheet" style="margin-top:18px"><div class="sheet-h"><h2>Roadmap</h2></div><div class="flow">' +
+        '<div class="box us"><b>Now</b>All three checks run on pull requests, on two sample APIs: refunds and payouts.</div><div class="arr">' + ICON.arrow + '</div>' +
+        '<div class="box"><b>Next</b>One real payments team runs it on a masked copy of their own data.</div><div class="arr">' + ICON.arrow + '</div>' +
+        '<div class="box"><b>Then</b>Services in any language, more than one endpoint, and currencies other than rupees.</div><div class="arr">' + ICON.arrow + '</div>' +
+        '<div class="box"><b>Later</b>APIs that don\'t move money.</div>' +
+      '</div><div class="sheet-b" style="padding-top:0"><p class="explain" style="margin:0"><b>Money first, other APIs next.</b> The method isn\'t tied to money. Countersign replays real past requests through the old code and the new code, checks rules on what comes out, and has a named person sign for anything risky. That works for any API. We are starting with APIs that move money, because that is where one wrong change costs the most. Other kinds of API come next. Only the first box works today. The rest is planned.</p></div></section>' +
       '<section class="sheet" style="margin-top:18px"><div class="sheet-h"><h2>Where it runs</h2></div><div class="flow">' +
         '<div class="box"><b>Developer</b>opens a pull request</div><div class="arr">' + ICON.arrow + '</div>' +
         '<div class="box us"><b>Countersign</b>runs in the company\'s own CI (GitHub Actions)</div><div class="arr">' + ICON.arrow + '</div>' +
