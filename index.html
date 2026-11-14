@@ -63,8 +63,33 @@ h1, h2, h3 { text-wrap: balance; }
 .num, .tab { font-variant-numeric: tabular-nums; }
 
 /* ---------- shell ---------- */
-.app { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
-.rail { padding: 22px 16px; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 22px; border-right: 1px solid var(--rule); }
+/* The side panel has two widths on a desk: full, with labels, or a narrow rail of icons.
+   Nothing inside it reflows when it changes: the panel just closes over its labels as they fade.
+   On a phone it is a drawer that slides in over the page. */
+:root { --rail-w: 248px; }
+body.rail-min { --rail-w: 68px; }
+.app { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); min-height: 100vh; transition: grid-template-columns .32s cubic-bezier(.2, .7, .2, 1); }
+.rail { padding: 22px 16px; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 22px; border-right: 1px solid var(--rule); overflow: hidden auto; scrollbar-width: none; }
+.rail > * { min-width: 216px; }
+.ni { flex: none; }
+.nl, .logo-word, .org, .team h4, .who > div:last-child, .rail-foot .rail-link, .rail-foot > span { transition: opacity .18s ease; }
+.rail-toggle { position: fixed; top: 24px; left: calc(var(--rail-w) - 13px); width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--rule-2); background: var(--sheet);
+  color: var(--ink-2); display: grid; place-items: center; cursor: pointer; z-index: 30; padding: 0; transition: left .32s cubic-bezier(.2, .7, .2, 1), background .15s; }
+.rail-toggle:hover { background: var(--tint); color: var(--ink); }
+.rail-toggle svg { transition: transform .32s cubic-bezier(.2, .7, .2, 1); }
+.topbar, .rail-scrim { display: none; }
+.icon-btn { border: 1px solid var(--rule-2); background: var(--sheet); color: var(--ink); border-radius: 8px; width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.rail-tip { position: fixed; z-index: 45; background: var(--ink); color: var(--paper); font-size: 12.5px; font-weight: 500; padding: 5px 9px; border-radius: 6px; pointer-events: none;
+  opacity: 0; transform: translateX(-4px); transition: opacity .12s, transform .12s; white-space: nowrap; }
+.rail-tip.show { opacity: 1; transform: none; }
+@media (min-width: 881px) {
+  body.rail-min .rail-toggle svg { transform: rotate(180deg); }
+  body.rail-min .nl, body.rail-min .logo-word, body.rail-min .org, body.rail-min .team h4, body.rail-min .who > div:last-child,
+  body.rail-min .rail-foot .rail-link, body.rail-min .rail-foot > span { opacity: 0; pointer-events: none; }
+  body.rail-min .nav a { width: 38px; padding-left: 10px; padding-right: 10px; }
+  body.rail-min .theme-btn { width: 38px; padding-left: 10px; padding-right: 10px; border-color: transparent; background: none; }
+  body.rail-min .nav .badge { position: absolute; left: 22px; top: 1px; min-width: 16px; padding: 0 4px; font-size: 10.5px; line-height: 16px; margin: 0; }
+}
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); padding: 0 6px; }
 .brand .logo-word { margin-top: 3px; }
 .brand:hover { text-decoration: none; }
@@ -76,7 +101,7 @@ h1, h2, h3 { text-wrap: balance; }
   transition: transform .32s cubic-bezier(.3, 1.25, .5, 1), width .32s cubic-bezier(.3, 1.25, .5, 1), height .2s; pointer-events: none; opacity: 0; }
 .nav-pill.ready { opacity: 1; }
 .nav a { position: relative; }
-.nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); font-weight: 500; font-size: 14.5px; }
+.nav a { display: flex; align-items: center; gap: 10px; white-space: nowrap; overflow: hidden; padding: 7px 10px; border-radius: 6px; color: var(--ink-2); font-weight: 500; font-size: 14.5px; }
 .nav a:hover { background: var(--tint); text-decoration: none; }
 .nav a.on { color: var(--ink); font-weight: 600; }
 .nav a.on:hover { background: none; }
@@ -108,7 +133,7 @@ body.drawer-open .drawer-b > *:nth-child(1) { animation-delay: .08s; } body.draw
 body.drawer-open .drawer-b > *:nth-child(3) { animation-delay: .16s; } body.drawer-open .drawer-b > *:nth-child(4) { animation-delay: .20s; }
 body.drawer-open .drawer-b > *:nth-child(5) { animation-delay: .24s; } body.drawer-open .drawer-b > *:nth-child(n+6) { animation-delay: .28s; }
 .rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 0 6px; font-size: 12px; color: var(--muted); line-height: 1.45; }
-.theme-btn { align-self: flex-start; border: 1px solid var(--rule-2); background: var(--sheet); color: var(--ink-2); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12.5px; }
+.theme-btn { align-self: flex-start; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; border: 1px solid var(--rule-2); background: var(--sheet); color: var(--ink-2); border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 12.5px; }
 
 .main { padding: 30px 36px 72px; max-width: 1260px; width: 100%; min-width: 0; }
 .crumbs { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
@@ -522,13 +547,18 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   .figure:nth-child(n+3) { border-top: 1px solid var(--rule); }
 }
 @media (max-width: 880px) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
-  .rail { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 14px; border-right: 0; border-bottom: 1px solid var(--rule);
-    padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  .org, .team, .rail-foot span { display: none; }
-  .rail-foot { margin: 0 0 0 auto; padding: 0; }
-  .nav { flex-direction: row; overflow-x: auto; width: 100%; order: 3; }
-  .nav a { white-space: nowrap; }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; transition: none; }
+  .topbar { display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--rule);
+    padding: 9px max(16px, env(safe-area-inset-right, 0px)) 9px max(16px, env(safe-area-inset-left, 0px)); }
+  .topbar .brand { padding: 0; }
+  .rail-toggle { display: none; }
+  .rail { position: fixed; top: 0; left: 0; bottom: 0; height: auto; width: min(288px, 86vw); z-index: 36; background: var(--paper); border-right: 1px solid var(--rule-2);
+    box-shadow: 18px 0 40px rgba(0, 0, 0, .12); transform: translateX(-104%); visibility: hidden; overflow-y: auto;
+    transition: transform .3s cubic-bezier(.2, .7, .2, 1), visibility 0s .3s; padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  body.rail-open .rail { transform: none; visibility: visible; transition: transform .3s cubic-bezier(.2, .7, .2, 1); }
+  .rail-scrim { display: block; position: fixed; inset: 0; z-index: 35; background: rgba(20, 19, 18, .34); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  body.rail-open .rail-scrim { opacity: 1; pointer-events: auto; }
+  body.rail-open { overflow: hidden; }
   .main { padding-block: 20px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .cols, .three, .callers { grid-template-columns: minmax(0, 1fr); }
   .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -562,7 +592,17 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
 </head>
 <body>
 <div class="app">
-  <aside class="rail">
+  <header class="topbar">
+    <button class="icon-btn" id="menuBtn" type="button" aria-label="Open the menu" aria-expanded="false" aria-controls="rail">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3.5 6h13M3.5 10h13M3.5 14h13"/></svg>
+    </button>
+    <a class="brand" href="#/welcome" aria-label="Countersign home" id="topBrand"></a>
+  </header>
+  <button class="rail-toggle" id="railToggle" type="button" aria-label="Collapse the side panel" aria-expanded="true" aria-controls="rail">
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 2.5L4 6l3.5 3.5"/></svg>
+  </button>
+  <div class="rail-scrim" id="railScrim"></div>
+  <aside class="rail" id="rail">
     <a class="brand" href="#/overview" aria-label="Countersign home">
       <svg class="logo-mark" height="30" viewBox="448 270 361 574" aria-hidden="true"><path d="M622.00 274.25c-0.50 0.75 -0.50 0.50 -0.50 25.00 0.00 20.00 -0.25 22.00 -1.25 25.25 0.00 0.75 -0.25 1.75 -0.25 2.00 0.00 0.25 -0.25 1.00 -0.25 1.25 -0.25 0.25 -0.75 1.25 -1.00 2.25 -0.50 1.75 -2.00 5.00 -2.25 5.50 -0.25 0.25 -0.25 0.75 -0.50 1.00 -0.25 0.25 -0.50 0.75 -0.75 1.25 -0.25 0.25 -1.00 1.50 -1.50 2.25 -2.25 3.50 -3.00 4.50 -5.00 6.50 -1.75 2.00 -7.25 6.75 -7.75 6.75 0.00 -0.00 -0.50 0.25 -0.75 0.50 -0.50 0.50 -2.00 1.50 -6.00 3.50 -4.00 2.00 -7.25 3.25 -12.25 4.25 -1.75 0.25 -5.50 0.25 -22.50 0.50 -21.00 0.25 -23.00 0.25 -28.25 1.25 -1.00 0.25 -2.50 0.50 -3.50 0.75 -5.00 1.00 -14.00 3.75 -18.00 5.75 -0.75 0.25 -2.00 1.00 -3.00 1.25 -1.25 0.50 -2.25 1.00 -2.50 1.25 -0.25 0.25 -0.75 0.50 -1.25 0.50 -1.25 0.75 -8.25 5.00 -10.50 6.50 -10.00 7.00 -18.50 15.75 -24.50 25.25 -1.00 1.25 -2.00 2.75 -2.25 3.25 -1.50 2.25 -6.50 12.50 -7.50 15.25 -0.25 0.75 -0.75 2.00 -1.00 2.75 -0.75 2.50 -2.25 7.25 -2.75 10.25 -0.50 1.75 -1.00 3.50 -1.00 4.00 0.00 0.50 -0.50 2.25 -0.75 4.00 0.00 1.75 -0.50 3.50 -0.50 4.00 -0.25 1.75 -0.25 71.25 0.25 72.00 0.00 0.25 0.50 2.00 0.75 3.50 0.25 3.25 1.50 8.50 2.00 10.25 0.25 0.75 0.75 1.75 1.00 2.50 0.00 1.00 0.50 1.75 0.50 1.75 0.00 0.25 0.25 1.00 0.50 1.50 1.00 3.00 1.75 5.00 4.25 10.00 1.50 2.75 3.00 5.25 3.00 5.50 0.25 0.25 0.75 0.75 1.00 1.25 1.00 2.25 6.75 10.00 8.75 12.00 7.25 7.75 13.50 13.00 19.00 16.50 1.00 0.75 2.25 1.50 2.50 1.75 0.50 0.25 0.75 0.50 0.75 0.50 0.25 -0.00 1.50 0.75 3.00 1.50 2.50 1.50 7.75 4.00 10.50 5.25 3.00 1.25 6.25 2.25 14.25 4.50 1.50 0.50 3.00 1.00 3.50 1.25 0.50 0.25 1.25 0.50 1.25 0.50 0.50 -0.00 2.00 0.75 4.00 1.75 0.25 0.25 1.00 0.50 1.50 0.75 1.25 0.75 5.75 3.50 7.25 4.75 4.25 3.50 9.25 9.25 11.75 13.75 0.25 0.50 0.75 1.50 1.25 2.25 1.50 2.75 2.75 6.25 3.75 11.00 0.50 2.50 0.50 3.25 0.75 18.75 0.25 16.50 0.25 17.25 1.00 17.75 0.25 0.25 12.75 0.25 27.75 0.25 27.50 -0.00 27.50 -0.00 28.50 -0.50 0.25 -0.25 0.75 -0.75 1.00 -1.25 0.25 -1.25 0.25 -117.00 -0.25 -119.00 -0.50 -2.75 -2.25 -6.25 -4.50 -8.50 -2.25 -2.50 -4.25 -3.75 -7.50 -5.00 -4.25 -1.50 -11.75 -5.50 -13.25 -7.00 -0.25 -0.25 -0.75 -0.50 -0.75 -0.50 -0.25 -0.00 -0.50 -0.25 -1.00 -0.50 -0.25 -0.25 -0.75 -0.75 -1.00 -0.75 -2.75 -1.75 -10.50 -9.00 -13.00 -12.25 -1.00 -1.25 -2.00 -2.50 -2.25 -3.00 -0.50 -0.50 -1.00 -1.25 -1.25 -1.75 -0.50 -0.25 -1.25 -1.50 -1.75 -2.50 -2.00 -3.00 -2.50 -4.00 -4.00 -7.25 -2.25 -4.25 -2.50 -5.00 -3.50 -8.00 -1.50 -5.25 -2.50 -9.75 -3.25 -15.75 -1.00 -9.25 0.75 -22.25 4.25 -31.25 1.00 -2.00 2.50 -5.25 2.75 -5.75 0.00 -0.25 0.75 -1.25 1.25 -2.25 3.75 -7.75 12.25 -18.00 18.75 -22.50 3.00 -2.25 7.75 -5.25 10.00 -6.50 3.00 -1.50 9.25 -4.25 10.00 -4.25 0.00 -0.00 0.50 -0.25 1.00 -0.25 0.75 -0.50 4.50 -1.50 6.50 -2.00 5.00 -1.00 3.25 -1.00 45.25 -1.25 28.50 -0.00 39.75 -0.25 40.50 -0.50 2.25 -0.75 3.50 -1.25 4.00 -1.50 0.25 -0.25 0.75 -0.75 1.50 -1.00 2.75 -2.00 5.50 -5.50 6.00 -8.75 0.75 -2.25 0.75 -114.25 0.25 -115.25l-0.50 -0.75 -44.75 -0.00 -44.75 -0.00 -0.25 0.50z" fill="currentColor"/><path d="M653.00 470.00c-1.75 0.50 -1.50 -1.75 -1.50 34.50 0.00 18.25 0.00 33.25 0.25 33.75 1.00 7.25 3.00 12.00 6.25 16.50 3.50 4.75 5.25 6.25 11.75 10.50 1.50 1.00 5.25 2.75 9.75 4.50 2.25 0.75 8.25 4.00 9.00 4.50 0.25 0.25 0.50 0.50 0.75 0.50 0.00 -0.00 0.25 0.25 0.50 0.50 0.25 0.25 0.75 0.50 1.00 0.75 0.50 -0.00 1.00 0.25 1.50 0.75 0.25 0.25 1.25 1.00 2.00 1.50 2.25 1.50 9.00 8.75 10.75 11.50 5.25 7.25 8.50 14.75 10.00 22.25 0.25 1.75 0.75 3.25 0.75 3.75 0.25 0.75 0.25 6.00 0.50 12.00 0.00 11.25 -0.25 15.00 -1.25 20.50 -1.25 7.00 -1.25 6.50 -2.50 11.00 -2.25 8.50 -5.75 16.50 -11.00 25.00 -4.00 6.75 -7.75 11.50 -14.50 18.25 -5.50 5.25 -11.50 9.75 -16.75 13.00 -1.00 0.50 -2.25 1.25 -3.00 1.75 -3.50 2.00 -16.00 7.00 -17.75 7.00 -0.25 -0.00 -1.00 0.25 -1.50 0.25 -1.50 0.50 -6.50 1.50 -9.75 1.75 -1.75 0.25 -14.00 0.25 -38.50 0.25l-35.75 0.25 -2.00 0.50c-5.00 1.50 -8.75 4.75 -10.50 9.75l-0.50 2.00 0.00 50.25c0.00 45.00 0.00 50.25 0.50 50.50 0.50 0.50 83.25 0.50 83.75 -0.00 0.50 -0.25 0.50 -2.25 0.50 -19.50 0.25 -17.75 0.25 -19.50 0.50 -21.00 0.75 -2.25 2.25 -7.00 2.50 -7.50 0.50 -0.75 1.50 -3.50 1.50 -3.75 0.00 -0.00 0.25 -0.25 0.25 -0.50 0.25 -0.25 0.75 -1.00 1.25 -2.00 2.75 -5.00 8.50 -11.25 14.00 -14.75 1.25 -1.00 5.50 -3.25 6.50 -3.75 0.25 -0.00 1.00 -0.25 1.75 -0.75 2.50 -1.25 7.00 -2.25 10.25 -2.75 1.00 -0.25 15.25 -0.25 31.50 -0.25 18.75 -0.25 29.75 -0.25 30.25 -0.50 0.50 -0.25 1.50 -0.25 2.00 -0.25 2.25 -0.00 12.50 -2.25 14.25 -3.25 0.25 -0.00 1.00 -0.50 2.00 -0.75 6.00 -2.00 16.25 -7.50 20.00 -10.75 0.50 -0.50 1.00 -0.75 1.00 -0.75 0.25 -0.00 3.50 -3.00 6.75 -6.00 4.50 -4.50 8.50 -9.00 11.25 -13.75 0.75 -1.25 4.50 -7.75 4.50 -8.00 0.00 -0.00 0.50 -1.00 1.00 -2.00 0.75 -1.75 1.00 -2.50 2.00 -5.25 0.50 -1.25 2.25 -6.50 2.25 -7.50 0.25 -0.25 0.50 -2.50 1.00 -4.75l0.75 -4.25 0.25 -13.75c0.50 -33.50 0.25 -70.25 -0.50 -74.75 -0.50 -2.75 -1.25 -6.75 -1.50 -7.00 -0.25 -0.25 -0.25 -0.75 -0.25 -1.00 0.00 -0.50 -1.75 -6.25 -2.25 -7.00 0.00 -0.50 -0.25 -1.00 -0.25 -1.00 0.00 -0.50 -4.00 -8.50 -5.25 -10.75 -0.75 -1.00 -1.50 -2.25 -1.75 -2.75 -2.50 -4.00 -11.75 -14.00 -16.50 -17.50 -2.00 -1.25 -6.00 -4.00 -6.25 -4.00 0.00 -0.00 -0.75 -0.25 -1.50 -0.75 -1.00 -0.75 -4.25 -2.25 -8.25 -4.25 -2.50 -1.00 -6.75 -2.50 -12.00 -4.00 -2.25 -0.75 -4.50 -1.50 -5.00 -1.75 -0.25 -0.00 -0.75 -0.25 -1.00 -0.25 -0.25 -0.00 -0.50 -0.25 -1.00 -0.25 -0.25 -0.25 -0.75 -0.50 -1.00 -0.50 -1.75 -0.75 -7.50 -4.25 -10.25 -6.75 -3.25 -2.75 -8.25 -8.25 -9.50 -10.50 -0.25 -0.25 -0.75 -1.00 -1.00 -1.50 -2.75 -4.25 -3.50 -5.75 -3.75 -7.00 -0.25 -0.25 -0.50 -1.75 -1.00 -2.75 -2.25 -7.00 -2.50 -8.75 -2.50 -28.50 -0.25 -14.00 -0.25 -16.00 -0.50 -16.75l-0.50 -0.75 -29.00 -0.00c-17.00 -0.00 -29.25 0.25 -29.75 0.25z" fill="currentColor"/><path d="M635 547Q645 577 671 583Q645 589 635 619Q635.5 592 628 583Q635.5 574 635 547Z" fill="var(--spark)"/></svg>
       <svg class="logo-word" height="18" viewBox="203 872 851 157" aria-hidden="true"><path d="M858.50 874.25c-3.75 0.75 -7.00 3.25 -8.75 6.50 -2.50 5.25 -1.75 9.75 2.00 14.50 2.25 2.75 8.25 4.25 12.50 3.00 5.50 -1.50 9.00 -6.25 8.75 -12.00 0.00 -8.25 -6.25 -13.00 -14.50 -12.00zM580.00 885.50c-0.25 -0.00 -0.25 5.50 -0.25 11.50 0.00 8.75 0.00 11.50 -0.25 11.75 -0.25 0.50 -1.00 0.50 -5.75 0.50 -3.00 0.25 -5.50 0.25 -5.75 0.25 0.00 0.25 -0.25 4.25 -0.25 9.25 0.00 8.25 0.00 9.00 0.50 9.50 0.25 0.25 0.75 0.25 5.50 0.25 3.00 -0.00 5.25 -0.00 5.50 -0.00 0.25 0.25 0.50 4.25 0.50 21.25l0.25 20.75 0.50 2.00c0.50 1.25 0.75 2.25 0.75 2.50 0.00 0.75 2.50 5.25 3.75 7.00 2.00 2.75 7.00 7.00 8.00 7.00 0.25 -0.00 1.00 0.25 1.75 0.75 3.50 2.00 7.00 2.50 17.50 2.50 7.75 0.25 9.25 -0.00 9.25 -0.75 0.00 -7.00 0.00 -17.75 -0.25 -18.00 -0.25 -0.25 -1.75 -0.25 -6.75 -0.25 -7.00 -0.00 -8.75 -0.25 -10.75 -1.00 -1.50 -0.75 -3.75 -2.75 -3.75 -3.25 0.00 -0.25 -0.25 -0.75 -0.50 -1.25l-0.50 -1.00 -0.25 -18.50c0.00 -10.25 0.00 -19.00 0.25 -19.25l0.25 -0.50 10.75 -0.00c8.75 -0.00 11.00 -0.25 11.25 -0.50 0.50 -0.25 0.50 -1.25 0.25 -9.25 0.00 -5.25 -0.25 -9.00 -0.25 -9.25 -0.25 -0.25 -2.75 -0.25 -11.00 -0.25 -8.25 -0.00 -11.00 -0.00 -11.25 -0.25 -0.25 -0.25 -0.25 -3.25 -0.25 -11.50 0.00 -10.00 0.00 -11.50 -0.50 -12.00l-0.25 -0.50 -9.00 -0.00c-8.00 -0.00 -9.00 -0.00 -9.00 0.50zM325.25 909.25c-0.50 -0.00 -1.50 0.25 -2.75 0.50 -4.00 0.75 -9.00 2.75 -11.75 4.75 -0.75 0.50 -1.75 1.25 -2.75 1.75 -3.75 2.75 -8.25 8.75 -10.00 13.00 -3.00 8.00 -3.00 9.25 -3.00 22.75 0.25 10.25 0.25 10.75 0.75 13.25 3.75 15.25 13.75 24.75 28.00 27.00 4.25 0.75 21.50 0.75 25.50 -0.00 2.75 -0.50 7.00 -1.75 8.50 -2.75 0.75 -0.25 1.25 -0.50 1.25 -0.50 0.50 -0.00 6.00 -3.75 7.75 -5.25 2.25 -2.25 6.25 -7.25 6.75 -8.75 0.00 -0.25 0.25 -1.00 0.50 -1.25 0.25 -0.25 0.50 -1.00 0.50 -1.25 0.25 -0.25 0.50 -1.25 0.75 -2.00 2.00 -4.75 2.50 -8.00 2.50 -19.25 0.00 -11.75 -0.50 -15.25 -2.25 -20.00 -0.25 -0.50 -0.75 -1.50 -0.75 -2.00 0.00 -0.50 -0.25 -1.00 -0.50 -1.25 -0.25 -0.25 -0.75 -0.75 -1.00 -1.50 -4.00 -8.00 -13.25 -14.75 -23.00 -17.00 -1.75 -0.25 -23.75 -0.75 -25.00 -0.25zm20.75 19.75c1.25 0.25 2.75 0.75 3.25 1.25 0.75 0.50 1.50 0.75 1.50 0.75 0.50 -0.00 3.50 3.00 4.25 4.25 0.75 1.00 1.50 2.50 2.50 4.75 1.00 3.00 1.00 17.75 0.00 21.00 -2.00 6.25 -6.25 10.25 -12.25 11.75 -1.75 0.50 -2.50 0.50 -9.50 0.50 -8.00 -0.25 -9.00 -0.25 -11.50 -1.50 -4.00 -1.75 -6.25 -4.25 -8.00 -8.25 -1.00 -2.75 -1.25 -4.00 -1.50 -11.00 -0.50 -7.50 -0.25 -10.25 1.25 -13.25 0.25 -1.00 0.50 -1.75 0.75 -2.25 0.00 -0.50 1.50 -2.50 2.75 -3.75 2.25 -2.50 6.50 -4.50 10.50 -4.75 2.50 -0.25 13.75 -0.00 16.00 0.50zM514.25 909.25c-2.75 0.25 -7.75 2.00 -9.50 3.25 -1.00 0.75 -1.50 0.50 -1.50 -1.00 0.25 -1.00 0.25 -1.25 -0.25 -1.75 -0.50 -0.50 -0.75 -0.50 -9.50 -0.50 -6.75 0.25 -9.00 0.25 -9.00 0.50 -0.50 0.75 -0.25 82.25 0.00 82.50 0.25 -0.00 4.25 -0.00 9.25 -0.00 7.75 -0.00 9.00 -0.00 9.25 -0.50 0.25 -0.25 0.25 -6.25 0.25 -28.25 0.00 -26.00 0.00 -28.00 0.50 -28.50 1.75 -2.75 5.75 -5.25 9.50 -6.25 3.75 -0.75 16.50 -0.50 20.00 0.25 2.25 0.75 4.25 2.00 5.75 3.50 1.00 1.25 2.25 3.75 2.50 4.75 0.25 0.25 0.25 1.50 0.50 2.50 0.50 1.50 0.50 5.25 0.50 26.75 0.00 22.25 0.25 25.25 0.50 25.50 0.50 0.50 0.75 0.50 9.25 0.25 4.75 -0.00 8.75 -0.25 9.00 -0.25 0.50 -0.25 0.50 -49.50 0.00 -54.00 -1.25 -13.50 -10.00 -24.50 -22.50 -27.75 -1.00 -0.25 -2.25 -0.75 -2.50 -0.75 -1.00 -0.50 -19.50 -0.50 -22.00 -0.25zM1006.75 909.25c-2.50 0.25 -6.75 1.25 -9.00 2.50 -3.00 1.25 -3.00 1.25 -3.25 -0.50 0.00 -1.00 -0.25 -1.50 -0.50 -1.75 -0.25 -0.25 -4.00 -0.25 -9.00 -0.25l-8.75 -0.00 -0.25 0.50c-0.75 0.75 -0.75 81.75 -0.25 82.25 0.50 0.50 18.00 0.50 18.50 -0.00 0.25 -0.25 0.25 -4.75 0.25 -28.50l0.00 -28.25 1.25 -1.25c4.75 -4.50 8.50 -5.75 18.25 -5.75 8.00 -0.00 10.00 0.50 13.50 2.75 2.00 1.25 4.25 4.25 4.75 6.00 0.00 0.25 0.25 1.00 0.50 1.50 0.25 1.00 0.50 3.50 0.50 27.25 0.00 22.75 0.00 26.00 0.50 26.25 0.25 0.25 17.75 0.50 18.00 -0.00 0.25 -0.00 0.25 -12.50 0.25 -27.75l0.00 -27.50 -0.75 -2.50c-1.50 -5.75 -2.50 -8.00 -6.00 -13.00 -2.75 -4.25 -9.75 -9.00 -15.25 -10.75 -5.00 -1.50 -5.75 -1.50 -14.25 -1.50 -4.50 -0.00 -8.50 0.25 -9.00 0.25zM248.50 909.50c-8.25 0.25 -8.50 0.25 -13.75 1.50 -9.75 2.50 -19.25 10.50 -24.00 19.50 -3.75 7.00 -5.50 13.75 -5.50 20.75 0.00 2.50 0.50 7.25 1.00 9.25 0.25 1.50 2.00 7.25 2.50 7.50 0.00 0.25 0.25 0.75 0.50 1.00 0.00 0.75 0.50 1.75 2.50 5.00 1.50 2.50 5.50 7.00 8.50 9.50 1.75 1.25 4.00 3.00 4.75 3.25 0.25 0.25 1.25 1.00 2.25 1.25 0.75 0.50 2.00 1.25 2.75 1.50 0.75 0.25 1.75 0.75 2.25 0.75 0.50 0.50 1.50 0.75 4.50 1.25 0.75 0.25 2.00 0.50 2.75 0.75 1.75 0.50 41.50 0.75 42.00 0.25 0.25 -0.25 0.25 -3.25 0.25 -10.50 0.00 -9.00 0.00 -10.00 -0.50 -10.25 -0.25 -0.25 -4.25 -0.25 -18.25 -0.25 -21.50 -0.00 -21.50 -0.00 -25.75 -2.00 -5.75 -3.00 -9.50 -8.00 -10.75 -14.75 -0.50 -2.75 -0.25 -3.75 0.25 -7.25 1.25 -7.00 5.50 -12.25 11.25 -15.00 0.75 -0.25 1.50 -0.75 1.75 -0.75 1.75 -1.00 4.25 -1.00 22.75 -1.00 17.50 -0.00 18.50 -0.00 18.75 -0.50 0.75 -0.75 0.75 -20.00 0.00 -20.50 -0.50 -0.50 -16.50 -0.50 -32.75 -0.25zM389.50 909.75c-0.25 0.25 -0.25 3.50 -0.25 25.25 0.25 26.00 0.25 26.50 1.25 30.00 0.25 0.75 0.50 1.75 0.50 2.00 0.00 0.50 0.25 0.75 0.25 1.00 0.25 0.25 0.50 0.75 0.50 1.25 0.50 1.50 2.75 6.00 4.50 8.50 2.25 3.25 5.50 6.50 9.25 9.00 3.25 2.25 4.00 2.50 10.00 4.50 4.25 1.50 16.00 2.00 22.50 1.00 12.00 -2.00 22.00 -9.50 27.00 -20.25 1.75 -3.75 2.00 -5.00 3.00 -8.75 0.00 -1.00 0.50 -2.50 0.50 -3.00 0.25 -0.75 0.25 -10.75 0.25 -25.75 0.00 -24.00 0.00 -24.50 -0.50 -25.00 -0.50 -0.50 -18.50 -0.25 -19.00 0.25 -0.25 0.25 -0.25 6.75 -0.25 23.50 -0.25 13.00 -0.25 23.50 -0.25 23.75 -0.25 -0.00 -0.25 1.00 -0.50 2.00 -0.50 3.00 -2.50 6.50 -5.00 9.00 -1.50 1.50 -3.50 3.00 -4.00 3.00 0.00 -0.00 -0.50 0.25 -1.25 0.50 -2.75 1.50 -10.75 2.25 -14.75 1.25 -7.25 -1.50 -12.25 -7.00 -13.50 -14.50 -0.50 -2.00 -0.50 -5.50 -0.50 -25.25 0.00 -19.25 0.00 -23.25 -0.25 -23.50 -0.75 -0.50 -19.00 -0.25 -19.50 0.25zM661.75 909.50c-2.50 0.25 -4.75 0.75 -6.00 1.25 -0.25 -0.00 -0.75 0.25 -1.00 0.25 -0.75 -0.00 -6.00 2.50 -7.75 3.75 -2.50 1.75 -6.50 5.00 -7.25 6.50 -0.25 0.25 -1.00 1.25 -1.50 2.25 -2.75 3.75 -4.75 9.00 -5.25 13.25 -1.00 6.25 -0.50 28.50 0.50 31.25 0.25 0.50 0.75 1.50 0.75 2.25 0.25 0.75 0.75 2.00 1.25 3.00 0.50 1.00 0.75 1.75 0.75 2.00 0.25 0.50 1.00 1.75 2.75 4.00 2.75 4.25 8.25 8.50 13.75 10.50 5.25 2.25 6.00 2.25 16.75 2.50 13.25 0.25 35.00 0.25 35.25 -0.25 0.50 -0.25 0.25 -18.00 0.00 -18.50 -0.25 -0.25 -4.25 -0.25 -20.00 -0.25 -12.75 -0.00 -20.50 -0.00 -21.25 -0.25 -5.25 -1.00 -9.00 -4.25 -11.00 -9.25 -0.75 -1.75 -0.75 -2.25 0.00 -2.50 0.25 -0.25 6.50 -0.25 18.50 -0.25 18.25 -0.00 18.75 -0.00 22.50 -1.00 5.00 -1.50 10.75 -5.50 13.00 -9.00 2.75 -4.75 3.50 -7.25 3.75 -12.50 0.00 -3.50 0.00 -3.75 -0.50 -6.25 -0.50 -1.25 -0.75 -2.75 -0.75 -3.00 0.00 -0.50 -2.25 -5.00 -3.75 -7.25 -0.50 -1.00 -2.00 -2.75 -3.00 -3.50 -1.75 -1.75 -6.25 -5.25 -6.75 -5.25 0.00 -0.00 -0.75 -0.25 -1.50 -0.75 -2.00 -1.00 -5.75 -2.25 -8.00 -2.75 -2.75 -0.25 -20.50 -0.50 -24.25 -0.25zm21.00 19.50c3.25 0.50 6.00 2.50 7.25 5.50 1.50 3.00 1.00 4.75 -1.25 6.50l-1.25 0.75 -17.75 0.25 -17.50 -0.00 -0.25 -0.50c-0.50 -0.75 0.00 -3.75 1.25 -5.75 0.75 -1.50 3.50 -4.75 4.00 -4.75 0.25 -0.00 0.75 -0.25 1.25 -0.75 1.25 -0.75 3.50 -1.50 6.50 -1.75 3.50 -0.25 15.25 -0.00 17.75 0.50zM746.50 909.50c-1.25 -0.00 -2.75 0.25 -3.25 0.50 -2.50 0.50 -4.50 1.25 -5.25 1.50 -0.25 0.25 -1.00 0.50 -1.50 0.50 -0.50 0.25 -0.75 0.50 -1.00 0.50 0.00 0.25 -0.50 0.50 -1.00 0.75 -2.25 1.25 -7.25 5.75 -8.75 8.00 -4.00 6.75 -4.50 9.00 -4.75 20.75 -0.25 11.75 0.00 49.75 0.25 50.00 0.25 0.50 17.75 0.25 18.00 -0.00 0.25 -0.25 0.50 -5.75 0.50 -26.00 0.00 -14.25 0.00 -26.75 0.25 -27.75 0.25 -3.25 2.50 -6.75 5.50 -8.50 2.50 -1.00 3.50 -1.25 12.75 -1.25 4.75 -0.00 8.75 -0.25 9.00 -0.25 0.25 -0.25 0.25 -2.25 0.25 -9.25 0.00 -9.00 0.00 -9.00 -0.50 -9.25 -0.75 -0.50 -15.50 -0.50 -20.50 -0.25zM797.50 909.50c-7.00 0.75 -13.00 3.75 -17.25 9.00 -2.25 2.75 -3.25 4.75 -4.75 9.50 -1.00 3.25 -1.00 9.50 0.00 12.75 0.25 0.75 0.50 1.75 0.50 2.00 0.00 0.75 2.75 6.00 3.75 7.25 4.00 5.00 9.50 8.25 16.25 9.75 0.50 0.25 5.75 0.25 11.50 0.50 12.00 0.25 12.00 0.25 13.75 2.75 2.25 3.25 1.50 7.25 -1.75 9.25l-1.25 0.75 -19.75 0.25c-15.25 -0.00 -19.75 0.25 -20.00 0.50 -0.25 0.25 -0.50 18.00 0.00 18.25 0.25 0.50 39.25 0.25 42.25 -0.00 3.00 -0.50 5.50 -1.25 8.50 -3.00 2.50 -1.50 6.00 -4.50 7.25 -6.00 0.25 -0.50 0.75 -1.25 1.25 -2.00 6.00 -8.50 5.25 -22.50 -1.50 -30.50 -2.00 -2.50 -6.75 -6.00 -8.75 -6.75 -0.25 -0.00 -0.75 -0.25 -0.75 -0.25 -0.50 -0.25 -3.00 -1.25 -5.00 -1.75 -1.50 -0.25 -3.50 -0.25 -12.25 -0.50 -12.00 -0.25 -12.00 -0.25 -13.75 -2.00 -3.25 -3.25 -2.25 -8.50 2.00 -10.25l1.75 -0.50 17.75 -0.00c12.00 -0.00 18.00 -0.25 18.25 -0.50 0.25 -0.00 0.25 -3.25 0.25 -9.25 0.00 -8.25 0.00 -9.00 -0.50 -9.25 -0.50 -0.25 -33.75 -0.25 -37.75 -0.00zM851.75 909.75c-0.50 0.25 -0.50 1.00 -0.50 41.00 0.00 35.50 0.00 41.00 0.25 41.25 0.50 0.25 17.25 0.50 18.25 -0.00 0.50 -0.00 0.50 -81.25 0.00 -82.25l-0.25 -0.50 -8.75 -0.00c-6.75 -0.00 -8.75 0.25 -9.00 0.50zM914.75 909.50c-5.00 0.50 -10.50 2.25 -15.25 5.25 -1.00 0.50 -2.00 1.25 -2.25 1.50 -2.50 1.25 -7.75 6.50 -9.75 9.50 -0.50 0.75 -1.00 1.75 -1.25 2.00 -2.25 3.00 -4.75 10.25 -5.25 14.75 -0.50 4.00 -0.25 15.75 0.00 18.50 1.25 6.75 5.00 14.50 9.25 19.25 1.75 1.50 6.25 5.50 6.50 5.50 0.25 -0.00 0.75 0.25 1.00 0.50 2.75 2.00 10.25 5.00 14.50 5.75 2.75 0.50 14.25 0.50 17.00 -0.00 3.75 -0.50 9.50 -3.00 12.00 -5.00 2.00 -1.50 3.00 -1.25 2.25 0.75 -0.25 0.25 -0.50 1.25 -0.75 2.00 -0.50 4.75 -4.75 10.75 -9.25 13.75 -5.25 3.50 -6.50 3.75 -22.00 3.75 -10.50 -0.00 -12.00 -0.00 -12.25 0.50 -0.75 0.50 -0.75 18.50 -0.25 19.00 0.50 0.25 3.50 0.25 14.00 0.25l13.75 -0.25 4.00 -1.00c4.00 -1.00 4.75 -1.25 7.25 -2.50 13.50 -6.25 23.00 -19.25 24.75 -34.00 0.25 -3.75 0.50 -39.50 0.00 -43.75 -0.50 -4.25 -2.00 -9.75 -3.75 -13.75 -4.50 -9.00 -11.75 -15.50 -22.25 -20.25 -4.50 -1.75 -14.00 -2.75 -22.00 -2.00zm11.75 19.50c3.50 0.75 8.00 3.00 10.50 5.50 5.50 5.25 7.75 13.00 6.00 22.25 -0.75 4.00 -2.50 7.50 -5.50 10.25 -0.50 0.50 -1.00 1.25 -1.50 1.50 -2.25 2.25 -7.00 4.25 -10.50 4.50 -8.50 0.75 -13.25 -0.25 -18.00 -3.75 -3.25 -2.25 -4.75 -4.50 -6.75 -9.50 -0.50 -1.00 -0.75 -4.00 -0.75 -9.25 0.00 -7.25 0.25 -8.00 3.50 -13.50 1.25 -2.00 4.25 -4.50 8.00 -6.50 0.50 -0.25 3.00 -1.00 4.75 -1.50 1.50 -0.25 7.75 -0.25 10.25 -0.00z" fill="currentColor"/></svg>
@@ -570,11 +610,11 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     <div class="org"><b>Sample Payments Co.</b>Demo workspace with made-up data</div>
     <nav class="nav" aria-label="Main">
       <span class="nav-pill" id="navPill" aria-hidden="true"></span>
-      <a href="#/welcome" data-nav="welcome">Start here</a>
-      <a href="#/overview" data-nav="overview">Overview</a>
-      <a href="#/change" data-nav="change">Changes <span class="badge" id="navCount" hidden>1</span></a>
-      <a href="#/audit" data-nav="audit">Audit log</a>
-      <a href="#/how" data-nav="how">How it works</a>
+      <a href="#/welcome" data-nav="welcome" data-tip="Start here"><svg class="ni" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 15.5v-13M4.5 3.5h8.5l-2 3 2 3H4.5"/></svg><span class="nl">Start here</span></a>
+      <a href="#/overview" data-nav="overview" data-tip="Overview"><svg class="ni" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="5.2" height="5.2" rx="1.2"/><rect x="10.3" y="2.5" width="5.2" height="5.2" rx="1.2"/><rect x="2.5" y="10.3" width="5.2" height="5.2" rx="1.2"/><rect x="10.3" y="10.3" width="5.2" height="5.2" rx="1.2"/></svg><span class="nl">Overview</span></a>
+      <a href="#/change" data-nav="change" data-tip="Changes"><svg class="ni" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="4" r="1.9"/><circle cx="5" cy="14" r="1.9"/><circle cx="13" cy="6.5" r="1.9"/><path d="M5 5.9v6.2M13 8.4c0 2.6-3.4 2.9-6.6 3.9"/></svg><span class="nl">Changes</span> <span class="badge" id="navCount" hidden>1</span></a>
+      <a href="#/audit" data-nav="audit" data-tip="Audit log"><svg class="ni" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5h6.2l3 3v10h-9.2z"/><path d="M10.5 2.7v3h3M7 9.2h4.2M7 12h4.2"/></svg><span class="nl">Audit log</span></a>
+      <a href="#/how" data-nav="how" data-tip="How it works"><svg class="ni" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.6"/><path d="M7.2 7.2a1.9 1.9 0 1 1 2.7 1.8c-.6.3-.9.7-.9 1.4M9 12.6v.1"/></svg><span class="nl">How it works</span></a>
     </nav>
     <div class="team">
       <h4>Team</h4>
@@ -582,7 +622,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
       <div class="who"><div class="av lead">AI</div><div>Ananya Iyer<span>Payments lead</span></div></div>
     </div>
     <div class="rail-foot">
-      <button class="theme-btn" id="themeBtn" type="button">Theme: light</button>
+      <button class="theme-btn" id="themeBtn" type="button" data-tip="Change theme"></button>
       <a class="rail-link" href="https://github.com/bhanujangid067/countersign-demo" target="_blank" rel="noopener">Source on GitHub</a>
       <span>A demo on one sample API. People and payments here are made up.</span>
     </div>
@@ -695,6 +735,44 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   window.addEventListener("resize", movePill);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(movePill);
 
+  // Collapse to a rail of icons and back. The choice is remembered.
+  var railToggle = document.getElementById("railToggle");
+  function setRail(min) {
+    document.body.classList.toggle("rail-min", min);
+    railToggle.setAttribute("aria-expanded", String(!min));
+    railToggle.setAttribute("aria-label", min ? "Expand the side panel" : "Collapse the side panel");
+    try { localStorage.setItem("cs-rail", min ? "min" : "full"); } catch (e) {}
+    movePill();
+  }
+  railToggle.onclick = function () { setRail(!document.body.classList.contains("rail-min")); };
+  try { if (localStorage.getItem("cs-rail") === "min") document.body.classList.add("rail-min"); } catch (e) {}
+
+  // On a phone the panel is a drawer.
+  var menuBtn = document.getElementById("menuBtn");
+  function setDrawerNav(open) {
+    document.body.classList.toggle("rail-open", open);
+    menuBtn.setAttribute("aria-expanded", String(open));
+    if (open) movePill();
+  }
+  menuBtn.onclick = function () { setDrawerNav(!document.body.classList.contains("rail-open")); };
+  document.getElementById("railScrim").onclick = function () { setDrawerNav(false); };
+  window.addEventListener("hashchange", function () { setDrawerNav(false); });
+  document.getElementById("topBrand").innerHTML = mark(24) + document.querySelector(".rail .logo-word").outerHTML.replace('height="18"', 'height="15"');
+
+  // When the panel is a rail of icons, a label appears beside whatever you point at.
+  var railTip = document.createElement("div");
+  railTip.className = "rail-tip"; document.body.appendChild(railTip);
+  document.getElementById("rail").addEventListener("mouseover", function (e) {
+    var t = e.target.closest("[data-tip]");
+    if (!t || !document.body.classList.contains("rail-min") || window.innerWidth <= 880) { railTip.classList.remove("show"); return; }
+    var box = t.getBoundingClientRect();
+    railTip.textContent = t.getAttribute("data-tip");
+    railTip.style.left = (document.getElementById("rail").getBoundingClientRect().right + 8) + "px";
+    railTip.style.top = (box.top + box.height / 2 - 14) + "px";
+    railTip.classList.add("show");
+  });
+  document.getElementById("rail").addEventListener("mouseleave", function () { railTip.classList.remove("show"); });
+
   // The team list says what everyone is doing right now, Countersign included.
   (function () {
     var team = document.querySelector(".team"), rows = team.querySelectorAll(".who");
@@ -724,6 +802,9 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
     say("doBot", running >= 0 ? "Checking " + num(running) + "…" : stopped >= 0 ? "Stopped " + num(stopped) : top.phase === "clear" ? "All clear on " + topNum : "Watching " + D.api, running >= 0 || stopped >= 0 ? "now" : "");
     say("doDev", top.phase === "merged" ? "Merged " + topNum : top.version === "fix" ? "Pushed a fix to " + topNum : top.phase === "stopped" ? "Waiting on " + topNum : "Developer", top.phase === "merged" || top.version === "fix" ? "now" : "");
     document.getElementById("avLead").classList.toggle("wait", stopped >= 0);
+    [["avBot", "Countersign", "doBot"], ["avDev", DEV.name, "doDev"], ["avLead", LEAD.name, "doLead"]].forEach(function (r) {
+      document.getElementById(r[0]).parentNode.setAttribute("data-tip", r[1] + " · " + document.getElementById(r[2]).textContent);
+    });
     say("doLead", stopped >= 0 ? "Asked to sign " + num(stopped) : signed >= 0 ? "Signed " + num(signed) : "Payments lead", stopped >= 0 ? "ask" : signed >= 0 ? "now" : "");
   }
   // ---------- the side panel ----------
@@ -754,7 +835,7 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   function applyTheme() {
     var t = themes[themeIx];
     if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
-    document.getElementById("themeBtn").textContent = "Theme: " + t;
+    document.getElementById("themeBtn").innerHTML = '<svg class="ni" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.4a5.6 5.6 0 0 1 0 11.2z" fill="currentColor"/></svg><span class="nl">Theme: ' + t + '</span>';
     try { localStorage.setItem("cs-theme", t); } catch (e) {}
   }
   document.getElementById("themeBtn").addEventListener("click", function () { themeIx = (themeIx + 1) % 3; applyTheme(); });
@@ -1719,7 +1800,8 @@ details.raw pre { margin-top: 8px; border-radius: var(--r); border: 1px solid va
   document.addEventListener("keydown", function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey || /input|textarea/i.test(e.target.tagName)) return;
     var k = e.key.toLowerCase();
-    if (k === "escape") { closeDrawer(); return; }
+    if (k === "escape") { closeDrawer(); setDrawerNav(false); return; }
+    if (k === "[" && window.innerWidth > 880) { railToggle.click(); return; }
     if ((k === "enter" || k === " ") && e.target.getAttribute && e.target.getAttribute("role") === "button" && e.target.tagName !== "BUTTON") {
       if (panelClick(e)) e.preventDefault();
       return;
