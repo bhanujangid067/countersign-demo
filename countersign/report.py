@@ -39,49 +39,59 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
     nouns = noun + "s"
     label = money.get("data_label")
     broken = [c for c in callers["callers"] if c["affected"]]
-    badge = {"stopped": "🛑 **stopped**", "approved": "✅ **approved**", "all clear": "✅ **all clear**"}[verdict]
-    lines = [MARKER, f"### countersign on the change to {api} — {badge}", ""]
+    who = f"{role} (@{approver})"
+    title = {"stopped": "Countersign stopped this change",
+             "approved": f"Countersign: approved by the {role}",
+             "all clear": "Countersign: all clear"}[verdict]
+    summary = {
+        "stopped": f"The change to **{api}** can't be merged until the {who} approves this commit, or a fix is pushed.",
+        "approved": f"The change to **{api}** was risky. The {role} read the results below and approved this commit.",
+        "all clear": f"The change to **{api}** is safe to merge. No sign-off is needed.",
+    }[verdict]
+    lines = [MARKER, f"### {title}", "", summary, ""]
 
-    if money["passed"]:
-        lines.append(f"✅ **Money rules hold** — re-ran {money['replayed']:,} of last week's {nouns}, all correct")
+    # One row per check, in plain words.
+    if broken:
+        names = ", ".join(c["name"].lower() for c in broken)
+        row_callers = f"**{len(broken)} of {callers['total']} apps affected:** {names}"
     else:
+        row_callers = f"No apps break ({callers['total']} callers checked)"
+    if money["passed"]:
+        row_money = f"All {money['replayed']:,} of last week's {nouns} come out right"
+    else:
+        row_money = f"**{money['wrong']:,} of {money['replayed']:,}** of last week's {nouns} come out wrong"
+    if verdict == "stopped":
+        row_sign = f"Waiting for the {who}"
+    elif verdict == "approved":
+        row_sign = f"Approved by @{approval['login']} at {approval['submitted_at']}"
+    else:
+        row_sign = "Not needed"
+    lines += ["| Check | Result |", "|:--|:--|",
+              f"| Who will break? | {row_callers} |",
+              f"| Is the money right? | {row_money} |",
+              f"| Who signs off? | {row_sign} |", ""]
+
+    if not money["passed"]:
         first = money["examples"][0]
         if first["after_paise"] is None:
-            example = f"paid **{inr(first['paid_paise'])}** → **turned away** (old code sent {inr(first['before_paise'])})"
+            example = f"paid {inr(first['paid_paise'])}, now turned away (the old code sent {inr(first['before_paise'])})"
         elif first["after_paise"] > first["paid_paise"]:
-            example = f"paid **{inr(first['paid_paise'])}** → {noun} sent **{inr(first['after_paise'])}**"
+            example = f"paid {inr(first['paid_paise'])}, {noun} sent {inr(first['after_paise'])}"
         else:
-            example = f"old code sent **{inr(first['before_paise'])}** → this change sends **{inr(first['after_paise'])}**"
-        lines += [
-            f"❌ **Money rule broken** — {first['rule']}",
-            f"Re-ran last week's {nouns} through this change: **{money['wrong']:,} of {money['replayed']:,}** wrong",
-            f"Example: {example}",
-        ]
+            example = f"the old code sent {inr(first['before_paise'])}, this change sends {inr(first['after_paise'])}"
+        lines += [f"**Rule broken:** {first['rule']}", f"**Example:** {example}"]
         if money.get("not_sent_paise", 0) > 0:
-            lines.append(f"In total: **{inr_short(money['not_sent_paise'])}** that went out last week would be turned away")
+            lines.append(f"**In total:** {inr_short(money['not_sent_paise'])} that went out last week would be turned away")
         if money.get("over_refund_paise", 0) > 0:
-            lines.append(f"In total: **{inr_short(money['over_refund_paise'])}** too much would go out")
-    lines.append("")
+            lines.append(f"**In total:** {inr_short(money['over_refund_paise'])} too much would go out")
+        lines.append("")
 
-    if broken:
-        names = " · ".join(c["name"].lower() for c in broken)
-        lines.append(f"⚠️ **{len(broken)} {'app is' if len(broken) == 1 else 'apps are'} affected** — {names}")
-    else:
-        lines.append(f"✅ **No apps break** — checked {callers['total']} callers")
-    lines.append("")
-
-    who = f"{role} (@{approver})"
-    if verdict == "stopped":
-        lines.append(f"➡️ **Needs approval from:** {who}")
-    elif verdict == "approved":
-        lines.append(f"✅ **Approved by {role}** @{approval['login']} at {approval['submitted_at']}")
+    if verdict == "approved":
         if approval.get("reason"):
-            lines.append(f"Reason given: “{approval['reason']}”")
+            lines.append(f"**Reason given:** “{approval['reason']}”")
         else:
-            lines.append("No reason was given with the approval")
-    else:
-        lines.append("✅ **No sign-off needed**")
-    lines.append("")
+            lines.append("No reason was given with the approval.")
+        lines.append("")
 
     # Details for anyone who wants to look closer.
     lines += ["<details><summary>Details</summary>", ""]
@@ -110,8 +120,8 @@ def comment(verdict: str, callers: dict, money: dict, approval: dict | None,
         lines.append("**What changed in the API**")
         lines.append("")
         for f in callers["changed_fields"]:
-            parts = [f"{k}: `{v['before']}` → `{v['after']}`" for k, v in f["changes"].items()]
-            lines.append(f"- `{f['field']}` in `{f['method']} {f['path']}` — " + "; ".join(parts))
+            parts = [f"{k}: `{v['before']}` to `{v['after']}`" for k, v in f["changes"].items()]
+            lines.append(f"- `{f['field']}` in `{f['method']} {f['path']}`: " + "; ".join(parts))
         lines.append("")
     fc = callers["format_check"]
     if fc.get("tool"):

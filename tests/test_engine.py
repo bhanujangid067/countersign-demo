@@ -73,5 +73,5 @@ def test_a_risky_change_is_stopped_until_someone_approves():
 def test_the_approvers_reason_is_in_the_comment():
     approval = {"login": "lead", "submitted_at": "2026-11-14T10:00:00Z", "reason": "Intended. Finance asked."}
     text = comment("approved", CALLERS, MONEY, approval, "payments lead", "lead", "cs-1")
-    assert "Reason given: “Intended. Finance asked.”" in text
+    assert "**Reason given:** “Intended. Finance asked.”" in text
     assert "turned away" in text
