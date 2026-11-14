@@ -1,4 +1,6 @@
 # The payments lead owns the money-moving code, so GitHub asks them to review changes here.
-# Replace the name below with the payments lead's GitHub username (same as countersign/config.yaml).
+# Replace the name below with the payments lead's GitHub username (same as countersign.yaml).
 /service/      @Bhanubpj067
 /countersign/  @Bhanubpj067
+/countersign.yaml  @Bhanubpj067
+/action.yml  @Bhanubpj067

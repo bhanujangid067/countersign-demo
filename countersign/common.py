@@ -11,9 +11,25 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 
+# How an API talks about money, when countersign.yaml doesn't say otherwise.
+DEFAULT_MONEY = {
+    "noun": "refund",
+    "request_id": "order_id", "request_amount": "amount", "request_unit": "unit",
+    "result_amount": "refund_paise",
+    "replay_id": "order_id", "replay_caller": "caller",
+    "replay_amount": "refund_paise", "replay_reference": "paid_paise",
+    "minor_unit": "paise", "major_unit": "rupees", "minor_per_major": 100,
+}
 
-def load_config() -> dict:
-    return yaml.safe_load((HERE / "config.yaml").read_text())
+
+def load_config(base: Path | str = ".") -> dict:
+    """Read countersign.yaml from the base branch's folder (older repos kept it in countersign/)."""
+    for path in (Path(base) / "countersign.yaml", Path(base) / "countersign" / "config.yaml"):
+        if path.exists():
+            config = yaml.safe_load(path.read_text())
+            config["money"] = {**DEFAULT_MONEY, **(config.get("money") or {})}
+            return config
+    raise SystemExit(f"Countersign: no countersign.yaml found in {Path(base).resolve()}")
 
 
 def load_yaml(path: Path) -> dict:
@@ -46,39 +62,46 @@ def load_handler(repo_dir: Path, target: str):
     return getattr(module, func_name)
 
 
-def read_refunds(path: Path) -> list[dict]:
-    """Last week's refunds (the ledger): what was paid and what was refunded, in paise."""
+def read_refunds(path: Path, money: dict = DEFAULT_MONEY) -> list[dict]:
+    """Last week's payments (the ledger), one dict per row.
+
+    Whatever the columns are called in the file, every row comes back with the same four keys:
+    "id", "caller", "asked" (what was asked for, minor unit) and "reference" (what rules compare with).
+    """
     with Path(path).open() as f:
         lines = [line for line in f if not line.startswith("#")]
     rows = list(csv.DictReader(lines))
     for row in rows:
-        row["paid_paise"] = int(row["paid_paise"])
-        row["refund_paise"] = int(row["refund_paise"])
+        row["id"] = row[money["replay_id"]]
+        row["caller"] = row[money["replay_caller"]]
+        row["asked"] = int(row[money["replay_amount"]])
+        row["reference"] = int(row[money["replay_reference"]])
     return rows
 
 
-def unit_sent(requests: list[dict], ledger: dict) -> dict:
-    """Work out which unit a caller sends 'amount' in, from its requests alone.
+def unit_sent(requests: list[dict], ledger: dict, money: dict = DEFAULT_MONEY) -> dict:
+    """Work out which unit a caller sends the amount in, from its requests alone.
 
-    Each request is matched with the ledger: if the amount equals the paise the bank really
-    refunded for that order, the caller sends paise; if it is 100 times smaller, rupees.
-    A request that names its unit ("unit": "rupees") is taken at its word.
+    Each request is matched with the ledger: if the amount equals the minor units (paise) really
+    sent for that order, the caller sends the minor unit; if it is 100 times smaller, the major
+    unit (rupees). A request that names its unit ("unit": "rupees") is taken at its word.
     Returns {"unit": "paise" | "rupees" | None, "matched": 5, "of": 5, "says_unit": False}.
     """
-    votes = {"paise": 0, "rupees": 0}
+    minor, major = money["minor_unit"], money["major_unit"]
+    votes = {minor: 0, major: 0}
     says_unit = False
     for request in requests:
-        refunded = ledger.get(request.get("order_id"))
-        amount = request.get("amount")
+        refunded = ledger.get(request.get(money["request_id"]))
+        amount = request.get(money["request_amount"])
         if refunded is None or isinstance(amount, bool) or not isinstance(amount, (int, float)):
             continue
-        if request.get("unit") in votes:
+        if request.get(money["request_unit"]) in votes:
             says_unit = True
-            votes[request["unit"]] += 1
+            votes[request[money["request_unit"]]] += 1
         elif amount == refunded:
-            votes["paise"] += 1
-        elif round(amount * 100) == refunded:
-            votes["rupees"] += 1
+            votes[minor] += 1
+        elif round(amount * money["minor_per_major"]) == refunded:
+            votes[major] += 1
     unit = max(votes, key=votes.get) if any(votes.values()) else None
     return {"unit": unit, "matched": votes[unit] if unit else 0, "of": len(requests), "says_unit": says_unit}
 
@@ -92,20 +115,21 @@ def request_builder(entry: dict, repo_dir: Path, config: dict, ledger: dict):
     target = (config.get("clients_in_repo") or {}).get(entry["caller"])
     if target:
         client = load_handler(repo_dir, target)
-        return lambda row: client(row["order_id"], row["refund_paise"])
+        return lambda row: client(row["id"], row["asked"])
 
-    seen = unit_sent(entry.get("recent_requests", []), ledger)
+    money = config["money"]
+    seen = unit_sent(entry.get("recent_requests", []), ledger, money)
     with_unit_field = seen["says_unit"]
 
     def build(row: dict) -> dict:
-        amount = row["refund_paise"]
-        if seen["unit"] == "rupees":
-            amount = amount / 100
+        amount = row["asked"]
+        if seen["unit"] == money["major_unit"]:
+            amount = amount / money["minor_per_major"]
             if amount == int(amount):
                 amount = int(amount)
-        request = {"order_id": row["order_id"], "amount": amount}
+        request = {money["request_id"]: row["id"], money["request_amount"]: amount}
         if with_unit_field:
-            request["unit"] = seen["unit"]
+            request[money["request_unit"]] = seen["unit"]
         return request
     return build
 
@@ -142,8 +166,16 @@ def inr_short(paise: int) -> str:
 
 
 def mask_order(order_id: str) -> str:
-    """ord_FbXXZg41 -> ord_••41"""
-    return f"ord_••{order_id[-2:]}"
+    """ord_FbXXZg41 -> ord_••41: keep the prefix and the last two characters."""
+    prefix = order_id.split("_", 1)[0] + "_" if "_" in order_id else ""
+    return f"{prefix}••{order_id[-2:]}"
+
+
+def rule_values(row: dict, before: int | None, after: int | None) -> dict:
+    """The names a money rule can use. The short names work for any API; the refund names are kept
+    because the first rules were written with them."""
+    return {"reference": row["reference"], "asked": row["asked"], "before": before, "out": after,
+            "paid": row["reference"], "refund_asked": row["asked"], "refund_before": before, "refund_out": after}
 
 
 def short_count(n: int) -> str:

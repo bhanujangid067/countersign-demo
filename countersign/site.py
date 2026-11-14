@@ -18,6 +18,7 @@ from pathlib import Path
 from countersign.check_money import rule_holds, send
 from countersign.common import (
     load_config, load_handler, load_yaml, mask_order, read_gateway_log, read_refunds, request_builder,
+    rule_values,
 )
 
 DIFF_FILES = ["service/refund_api.py", "service/openapi.yaml", "clients/mobile_app.py", "service/tests/test_refunds.py"]
@@ -46,8 +47,9 @@ def replay(base: Path, head: Path, config: dict) -> dict:
     rules = load_yaml(base / config["rules"])["rules"]
     old_handler = load_handler(base, config["handler"])
     new_handler = load_handler(head, config["handler"])
-    refunds = read_refunds(base / config["replay_data"])
-    ledger = {row["order_id"]: row["refund_paise"] for row in refunds}
+    refunds = read_refunds(base / config["replay_data"], config["money"])
+    ledger = {row["id"]: row["asked"] for row in refunds}
+    out_field = config["money"]["result_amount"]
     log = {e["caller"]: e for e in read_gateway_log(base / config["gateway_log"])}
     old_build = {c: request_builder(e, base, config, ledger) for c, e in log.items()}
     new_build = {c: request_builder(e, head, config, ledger) for c, e in log.items()}
@@ -55,8 +57,8 @@ def replay(base: Path, head: Path, config: dict) -> dict:
     wrong, over, not_sent, rejected = [], 0, 0, 0
     broken_count = [0] * len(rules)
     for i, row in enumerate(refunds):
-        before = send(old_handler, old_build[row["caller"]](row))
-        after = send(new_handler, new_build[row["caller"]](row))
+        before = send(old_handler, old_build[row["caller"]](row), out_field)
+        after = send(new_handler, new_build[row["caller"]](row), out_field)
         broken = False
         if after is None:
             if before is not None:
@@ -64,8 +66,7 @@ def replay(base: Path, head: Path, config: dict) -> dict:
                 rejected += 1
                 not_sent += before
         else:
-            values = {"paid": row["paid_paise"], "refund_asked": row["refund_paise"],
-                      "refund_before": before, "refund_out": after}
+            values = rule_values(row, before, after)
             for n, rule in enumerate(rules):
                 if not rule_holds(rule["check"], values):
                     broken = True
@@ -74,8 +75,8 @@ def replay(base: Path, head: Path, config: dict) -> dict:
                     break
         if broken:
             # [row number, masked order, caller, paid, old code sent, new code sends (None = turned away)]
-            wrong.append([i, mask_order(row["order_id"]), log[row["caller"]]["name"],
-                          row["paid_paise"], before, after])
+            wrong.append([i, mask_order(row["id"]), log[row["caller"]]["name"],
+                          row["reference"], before, after])
     return {"replayed": len(refunds), "wrong": wrong, "over_refund_paise": over, "not_sent_paise": not_sent,
             "rejected": rejected,
             "rules": [{"check": r["check"], "message": r["message"], "broken": broken_count[n]}
@@ -92,7 +93,7 @@ def main() -> int:
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
 
-    config = load_config()
+    config = load_config(args.base)
     read = lambda version, name: json.loads((args.results / version / name).read_text())
 
     def version(name: str, old: Path, new: Path, title: str) -> dict:

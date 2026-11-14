@@ -16,7 +16,7 @@ from pathlib import Path
 
 from countersign.common import (
     inr, inr_short, load_config, load_handler, load_yaml, mask_order, paint, read_gateway_log, read_refunds,
-    request_builder, write_json,
+    request_builder, rule_values, write_json,
 )
 
 COMPARE = {"<=": operator.le, "<": operator.lt, ">=": operator.ge, ">": operator.gt,
@@ -24,10 +24,10 @@ COMPARE = {"<=": operator.le, "<": operator.lt, ">=": operator.ge, ">": operator
 EXAMPLES_TO_SHOW = 3
 
 
-def send(handler, request: dict) -> int | None:
-    """Run the handler; return paise sent to the bank, or None if it rejected the request."""
+def send(handler, request: dict, result_amount: str = "refund_paise") -> int | None:
+    """Run the handler; return the money it sends (minor unit), or None if it rejected the request."""
     try:
-        return handler(request)["refund_paise"]
+        return handler(request)[result_amount]
     except (ValueError, KeyError, TypeError):
         return None
 
@@ -45,14 +45,16 @@ def main() -> int:
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
 
-    config = load_config()
+    config = load_config(args.base)
+    money = config["money"]
+    noun, nouns, out_field = money["noun"], money["noun"] + "s", money["result_amount"]
     # Rules, replay data and the gateway log come from the base branch, so a PR can't weaken
     # the checks on itself. Only the code under test (the API and in-repo callers) comes from the PR.
     rules = load_yaml(args.base / config["rules"])["rules"]
     old_handler = load_handler(args.base, config["handler"])
     new_handler = load_handler(args.head, config["handler"])
-    refunds = read_refunds(args.base / config["replay_data"])
-    ledger = {row["order_id"]: row["refund_paise"] for row in refunds}
+    refunds = read_refunds(args.base / config["replay_data"], money)
+    ledger = {row["id"]: row["asked"] for row in refunds}
     log = {e["caller"]: e for e in read_gateway_log(args.base / config["gateway_log"])}
     old_build = {c: request_builder(e, args.base, config, ledger) for c, e in log.items()}
     new_build = {c: request_builder(e, args.head, config, ledger) for c, e in log.items()}
@@ -61,16 +63,15 @@ def main() -> int:
     rejected = 0
     wrong = []
     for row in refunds:
-        before = send(old_handler, old_build[row["caller"]](row))
-        after = send(new_handler, new_build[row["caller"]](row))
+        before = send(old_handler, old_build[row["caller"]](row), out_field)
+        after = send(new_handler, new_build[row["caller"]](row), out_field)
         if after is None:
             if before is not None:
                 rejected += 1
                 wrong.append({"row": row, "before": before, "after": None,
-                              "rule": "a refund that went out before is now turned away"})
+                              "rule": f"a {noun} that went out before is now turned away"})
             continue
-        values = {"paid": row["paid_paise"], "refund_asked": row["refund_paise"],
-                  "refund_before": before, "refund_out": after}
+        values = rule_values(row, before, after)
         for rule in rules:
             if not rule_holds(rule["check"], values):
                 broken_count[rule["id"]] += 1
@@ -78,9 +79,9 @@ def main() -> int:
                 break
 
     examples = [{
-        "order": mask_order(w["row"]["order_id"]),
+        "order": mask_order(w["row"]["id"]),
         "caller": log[w["row"]["caller"]]["name"],
-        "paid_paise": w["row"]["paid_paise"],
+        "paid_paise": w["row"]["reference"],
         "before_paise": w["before"],
         "after_paise": w["after"],
         "rule": w["rule"],
@@ -103,7 +104,9 @@ def main() -> int:
 
     result = {
         "check": "is-the-money-right",
-        "data": f"{config['replay_data']} (sample data)",
+        "noun": noun,
+        "data": f"{config['replay_data']}{' (' + config['data_label'] + ')' if config.get('data_label') else ''}",
+        "data_label": config.get("data_label"),
         "replayed": len(refunds),
         "wrong": len(wrong),
         "rejected": rejected,
@@ -118,22 +121,28 @@ def main() -> int:
     write_json(args.out, result)
 
     print(paint("Check 2 · Is the money right?", "bold"))
-    print(f"  Re-ran {len(refunds):,} refunds from last week (sample data) through the old and new code")
+    label = f" ({config['data_label']})" if config.get("data_label") else ""
+    print(f"  Re-ran {len(refunds):,} {nouns} from last week{label} through the old and new code")
     if wrong:
         messages = sorted({w["rule"] for w in wrong})
-        print(paint(f"  ✗ {len(wrong):,} of {len(refunds):,} refunds broke a money rule: {'; '.join(messages)}",
+        print(paint(f"  ✗ {len(wrong):,} of {len(refunds):,} {nouns} broke a money rule: {'; '.join(messages)}",
                     "red", "bold"))
         for e in examples:
-            after = f"refund sent {inr(e['after_paise'])}" if e["after_paise"] is not None else "turned away"
-            print(paint(f"    {e['order']}  {e['caller']:<22} paid {inr(e['paid_paise']):>12}  →  {after}", "red"))
+            if e["after_paise"] is None:
+                line = f"paid {inr(e['paid_paise']):>12}  →  turned away"
+            elif e["after_paise"] > e["paid_paise"]:
+                line = f"paid {inr(e['paid_paise']):>12}  →  {noun} sent {inr(e['after_paise'])}"
+            else:  # within what was paid, but not what the old code sent
+                line = f"old code sent {inr(e['before_paise']):>12}  →  this change sends {inr(e['after_paise'])}"
+            print(paint(f"    {e['order']}  {e['caller']:<22} {line}", "red"))
         if over_refund > 0:
             print(paint(f"  ✗ Together they would send {inr_short(over_refund)} too much", "red", "bold"))
             for name, app in by_caller.items():
-                print(paint(f"    {name:<22} {app['wrong']:>5,} refunds   {inr_short(app['over_refund_paise'])} too much", "red"))
+                print(paint(f"    {name:<22} {app['wrong']:>5,} {nouns}   {inr_short(app['over_refund_paise'])} too much", "red"))
         if not_sent > 0:
             print(paint(f"  ✗ Together, {inr_short(not_sent)} that went out last week would be turned away", "red", "bold"))
         return 1
-    print(paint(f"  ✓ All {len(refunds):,} refunds follow the money rules", "green"))
+    print(paint(f"  ✓ All {len(refunds):,} {nouns} follow the money rules", "green"))
     return 0
 
 

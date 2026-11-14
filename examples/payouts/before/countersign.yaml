@@ -1,0 +1,24 @@
+# Countersign on a second API, with different field names. Countersign's own code is unchanged.
+api_name: payout-api
+spec: service/openapi.yaml
+handler: service/payout_api.py:create_payout
+gateway_log: data/gateway_log.jsonl
+replay_data: data/payouts_last_week.csv
+rules: rules.yaml
+
+approver:
+  role: finance lead
+  github_user: your-finance-lead
+
+label: needs-finance-lead
+data_label: sample data
+
+money:
+  noun: payout
+  request_id: settlement_id
+  request_amount: gross
+  result_amount: payout_paise
+  replay_id: settlement_id
+  replay_caller: caller
+  replay_amount: gross_paise
+  replay_reference: gross_paise
