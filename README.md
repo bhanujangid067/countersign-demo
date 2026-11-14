@@ -184,6 +184,15 @@ To see it work on something other than refunds first, read [`examples/payouts/`]
 - Call the service over HTTP in a sandbox, so the handler can be in any language.
 - More than one endpoint, and currencies other than rupees.
 - Publish tagged releases of the action.
+- APIs that don't move money. See [Money first, other APIs next](#money-first-other-apis-next).
+
+---
+
+## Money first, other APIs next
+
+The method isn't tied to money. Countersign replays real past requests through the old code and the new code, checks rules on what comes out, and has a named person sign for anything risky. That works for any API.
+
+We are starting with APIs that move money, because that is where one wrong change costs the most. Today's build reflects that: its rules compare amounts, and the two sample APIs are refunds and payouts. Other kinds of API come next.
 
 ---
 
@@ -191,9 +200,9 @@ To see it work on something other than refunds first, read [`examples/payouts/`]
 
 | Branch | What it does | Tests | Check 1 | Check 2 | Result |
 |---|---|---|---|---|---|
-| `bad-change` | `amount` now read as rupees; mobile app updated | ✓ 4 pass | ⚠ 2 callers break | ✗ 890 of 4,180 wrong | **STOPPED** |
-| `fix` (one more commit) | API takes an explicit `unit`, paise by default, so old apps keep working; the mobile app sends `unit: "rupees"` | ✓ 6 pass | ✓ | ✓ | **ALL CLEAR** |
-| `review-limit` | Refunds above ₹1,00,000 are turned away and go to manual review | ✓ 5 pass | ⚠ 1 caller affected | ✗ 7 of 4,180 turned away | **STOPPED**, then **APPROVED** with a reason |
+| `bad-change` | `amount` now read as rupees; mobile app updated | 4 pass | 2 callers break | 890 of 4,180 wrong | **STOPPED** |
+| `fix` (one more commit) | API takes an explicit `unit`, paise by default, so old apps keep working; the mobile app sends `unit: "rupees"` | 6 pass | No callers break | All 4,180 right | **ALL CLEAR** |
+| `review-limit` | Refunds above ₹1,00,000 are turned away and go to manual review | 5 pass | 1 caller affected | 7 of 4,180 turned away | **STOPPED**, then **APPROVED** with a reason |
 
 ---
 

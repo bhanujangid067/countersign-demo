@@ -17,12 +17,12 @@ You need: a **public** repo (branch rules are free on public repos), and a **sec
 3. Add the payments lead as a collaborator: **Settings → Collaborators**.
 4. Wait for the first checks to finish on the PR (about a minute). Then turn on the merge block: **Settings → Rules → Rulesets → New branch ruleset**
    - Target: the default branch (`main`); Enforcement: **Active**
-   - ✓ Require a pull request before merging → ✓ **Dismiss stale pull request approvals when new commits are pushed** (so a new commit always needs a new approval)
-   - ✓ Require status checks to pass → add **Normal tests** and **Countersign**
+   - Tick "Require a pull request before merging", then tick **Dismiss stale pull request approvals when new commits are pushed** (so a new commit always needs a new approval)
+   - Tick "Require status checks to pass", then add **Normal tests** and **Countersign**
 5. **During the walkthrough:**
    - Fix route: `scripts/github_demo.sh fix` → about a minute later everything is green.
    - The second change: `setup` also opens a PR from `review-limit`. It is stopped too, and it has no fix. The payments lead approves it and types the reason in the review box. The reason appears in the Countersign comment.
-   - Approval route: the payments lead opens the PR → **Files changed → Review changes → Approve** → the "re-check after review" workflow (`countersign-review.yml`) re-runs Countersign, which turns green with "Approved by payments lead". Takes about a minute.
+   - Approval route: the payments lead opens the PR → **Files changed → Review changes → Approve** → the "re-check after review" workflow (`countersign-review.yml`) re-runs Countersign, which turns green with "Countersign: approved by the payments lead". Takes about a minute.
 6. Afterwards: `scripts/github_demo.sh reset` puts the PR back to the bad change. Any approval is cancelled, because the PR got a new push.
 
 The ruleset blocks direct pushes to `main`. To change `main`, switch the ruleset to **Disabled**, push, and switch it back to **Active**.
@@ -34,11 +34,11 @@ The ruleset blocks direct pushes to `main`. To change `main`, switch the ruleset
 | Time | Show | Say |
 |---|---|---|
 | 0:00 | The PR title and its "Files changed" tab | "A developer makes `amount` rupees instead of paise. Simpler for app developers. They even update the mobile app." |
-| 0:15 | The checks list: **Normal tests ✓** | "Every normal test passes. Any team would merge this." |
-| 0:25 | **Countersign ✗** and the comment | "Countersign stopped it." |
-| 0:35 | The "2 apps use this field" line | "First: who will break? From the company's own gateway logs: the merchant dashboard and the partner shopping app still send paise." |
-| 0:50 | The "paid ₹900.00 → refund sent ₹90,000.00" line | "Second: is the money right? We replayed last week's refunds. A ₹900 refund would send ₹90,000. 890 of 4,180 would be wrong. That's proof, not an opinion." |
-| 1:05 | "Needs approval from: payments lead", the merge button blocked | "Third: who signs off? It can't merge until the payments lead approves, or it's fixed." |
+| 0:15 | The checks list: **Normal tests** passed | "Every normal test passes. Any team would merge this." |
+| 0:25 | **Countersign** failed, and its comment | "Countersign stopped it." |
+| 0:35 | The "Who will break?" row: 2 of 8 apps affected | "First: who will break? From the company's own gateway logs: the merchant dashboard and the partner shopping app still send paise." |
+| 0:50 | The "Example: paid ₹900.00, refund sent ₹90,000.00" line | "Second: is the money right? We replayed last week's refunds. A ₹900 refund would send ₹90,000. 890 of 4,180 would be wrong. That's proof, not an opinion." |
+| 1:05 | The "Who signs off?" row: waiting for the payments lead. The merge button is blocked | "Third: who signs off? It can't merge until the payments lead approves, or it's fixed." |
 | 1:15 | Run `scripts/github_demo.sh fix`, wait, all green | "The developer adds an explicit unit, so old apps keep working. Everything is green." |
 | 1:25 | The audit record link | "And there's an audit record of who checked what, and when. A second signature before money moves." |
 
