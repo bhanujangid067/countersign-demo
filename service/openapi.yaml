@@ -90,9 +90,9 @@ components:
         order_id:
           type: string
         amount:
-          type: integer
-          description: Amount to refund, in paise (₹1 = 100 paise).
-          x-unit: paise
+          type: number
+          description: Amount to refund, in rupees (for example 900 or 49.50).
+          x-unit: rupees
     Refund:
       type: object
       properties:
