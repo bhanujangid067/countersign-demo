@@ -1,12 +1,12 @@
-// Warm ivory, deep editorial blue and the logo's orange spark: the same palette as the website.
+// White surfaces on pale grey, deep blue and the logo's orange spark: the same palette as the website.
 export const C = {
-  paper: "#eae6de",
-  paperDeep: "#e1dcd2",
-  sheet: "#fbfaf7",
-  ink: "#1a1a1a",
-  ink2: "#3d3a35",
-  muted: "#6e6960",
-  rule: "#dcd6cb",
+  paper: "#f6f7f9",
+  paperDeep: "#eceef2",
+  sheet: "#ffffff",
+  ink: "#12151c",
+  ink2: "#3a414d",
+  muted: "#6a7282",
+  rule: "#e6e8ec",
   pen: "#226192",
   penSoft: "#e3ecf3",
   spark: "#f27236",

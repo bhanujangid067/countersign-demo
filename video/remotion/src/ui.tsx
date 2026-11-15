@@ -1,5 +1,6 @@
 import type React from "react";
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { RAIL } from "./stage";
 import { C, MONO, SANS } from "./theme";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -22,7 +23,7 @@ export const Paper: React.FC<{ deep?: boolean }> = ({ deep }) => {
 
 // Captions for one voice line: sentences (long ones split at a comma), timed by word count.
 function chunks(text: string, seconds: number) {
-  const sentences = text.match(/[^.?!]+[.?!]/g)?.map((s) => s.trim()) ?? [text];
+  const sentences = text.match(/[^.?!:]+[.?!:]/g)?.map((s) => s.trim()) ?? [text];
   const pieces: string[] = [];
   for (const s of sentences) {
     const words = s.split(" ").length;
@@ -49,7 +50,7 @@ export const Captions: React.FC<{ text: string; seconds: number }> = ({ text, se
   const local = t - cur.start;
   const opacity = interpolate(local, [0, 0.18], [0, 1], clamp) * interpolate(t, [cur.end, cur.end + 0.25], [1, 0], clamp);
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 16, pointerEvents: "none" }}>
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 30, pointerEvents: "none" }}>
       <div
         style={{
           opacity,
@@ -164,35 +165,27 @@ export const Chip: React.FC<{ label: string; sub?: string; duration: number; col
   );
 };
 
-// A card of key facts that springs in on the right.
-export const Callout: React.FC<{ duration: number; children: React.ReactNode; top?: number; accent?: string; width?: number; side?: "left" | "right" }> = ({
-  duration,
-  children,
-  top = 520,
-  accent = C.pen,
-  width = 470,
-  side = "right",
-}) => {
+// A card of key facts, in the rail to the right of the window (never on top of the page).
+export const Callout: React.FC<{ duration: number; children: React.ReactNode; accent?: string }> = ({ duration, children, accent = C.pen }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const enter = spring({ frame, fps, config: { damping: 18, stiffness: 140, mass: 0.8 } });
-  const exit = interpolate(frame, [duration - 12, duration], [1, 0], clamp);
+  const enter = spring({ frame, fps, config: { damping: 20, stiffness: 150, mass: 0.8 } });
+  const exit = interpolate(frame, [duration - 10, duration], [1, 0], clamp);
   return (
     <div
       style={{
         position: "absolute",
-        [side]: 70,
-        top,
-        width,
+        left: RAIL.x,
+        top: RAIL.notes,
+        width: RAIL.width,
+        boxSizing: "border-box",
         opacity: Math.min(1, enter * 1.4) * exit,
-        translate: `${interpolate(enter, [0, 1], [side === "right" ? 80 : -80, 0])}px 0`,
-        filter: `blur(${interpolate(enter, [0, 1], [6, 0], clamp)}px)`,
-        scale: String(interpolate(enter, [0, 1], [0.94, 1])),
+        translate: `0 ${interpolate(enter, [0, 1], [26, 0])}px`,
         background: C.sheet,
-        borderRadius: 18,
-        padding: "24px 28px 26px",
-        boxShadow: "0 30px 70px rgba(40,30,15,0.3), 0 0 0 1px rgba(26,26,26,0.06)",
-        borderTop: `6px solid ${accent}`,
+        borderRadius: 16,
+        padding: "22px 26px 24px",
+        boxShadow: "0 24px 56px rgba(40,30,15,0.2), 0 0 0 1px rgba(26,26,26,0.06)",
+        borderLeft: `5px solid ${accent}`,
         fontFamily: SANS,
         color: C.ink,
         zIndex: 6,
@@ -202,6 +195,25 @@ export const Callout: React.FC<{ duration: number; children: React.ReactNode; to
     </div>
   );
 };
+
+// The story's steps, at the top of the rail: where we are in the walkthrough.
+export const STEPS = ["Overview", "The change", "Who will break?", "Is the money right?", "Stopped", "Path 1: fix it", "Path 2: sign it", "The audit log", "Live on GitHub"];
+export const Steps: React.FC<{ current: number; opacity?: number }> = ({ current, opacity = 1 }) => (
+  <div style={{ position: "absolute", left: RAIL.x, top: RAIL.y, width: RAIL.width, opacity, fontFamily: SANS }}>
+    <div style={{ fontFamily: MONO, fontSize: 15, letterSpacing: "0.14em", color: C.muted, marginBottom: 12 }}>WALKTHROUGH</div>
+    {STEPS.map((label, i) => {
+      const on = i === current, done = i < current;
+      return (
+        <div key={label} style={{ display: "flex", alignItems: "center", gap: 14, height: 35 }}>
+          <div style={{ width: 22, display: "flex", justifyContent: "center" }}>
+            <div style={{ width: on ? 12 : 8, height: on ? 12 : 8, borderRadius: 6, background: on ? C.spark : done ? C.pen : "transparent", border: on || done ? "none" : `1.5px solid ${C.muted}`, opacity: on ? 1 : done ? 0.7 : 0.6 }} />
+          </div>
+          <div style={{ fontSize: 22, fontWeight: on ? 600 : 400, color: on ? C.ink : C.muted, opacity: on ? 1 : done ? 0.9 : 0.65, letterSpacing: "-0.005em" }}>{label}</div>
+        </div>
+      );
+    })}
+  </div>
+);
 
 // A rectangle that draws itself around something important.
 export const Highlight: React.FC<{ x: number; y: number; w: number; h: number; color: string; delay?: number }> = ({ x, y, w, h, color, delay = 0 }) => {

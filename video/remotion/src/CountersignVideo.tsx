@@ -1,7 +1,7 @@
 import { Audio } from "@remotion/media";
 import { linearTiming, TransitionSeries, type TransitionPresentationComponentProps } from "@remotion/transitions";
 import { useEffect, useState } from "react";
-import { AbsoluteFill, continueRender, delayRender, Easing, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, continueRender, delayRender, Easing, interpolate, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { fontsLoaded } from "./fonts";
 import { Close } from "./scenes/Close";
 import { Problem } from "./scenes/Problem";
@@ -26,6 +26,17 @@ const Progress: React.FC = () => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   return <div style={{ position: "absolute", left: 0, bottom: 0, height: 5, width: `${(frame / durationInFrames) * 100}%`, background: C.pen, opacity: 0.8 }} />;
+};
+
+// A quiet pad under the whole video (make_music.py): fuller under the title and the close, low under the voice.
+const Music: React.FC = () => {
+  const { durationInFrames, fps } = useVideoConfig();
+  const open = DUR.title - TRANSITION;
+  const close = durationInFrames - DUR.close;
+  const volume = (f: number) =>
+    interpolate(f, [0, fps, open - fps, open + fps, close, close + 1.5 * fps, durationInFrames - 2.5 * fps, durationInFrames - 5],
+      [0, 0.3, 0.3, 0.1, 0.1, 0.3, 0.3, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return <Audio src={staticFile("music.m4a")} volume={volume} />;
 };
 
 export const CountersignVideo: React.FC = () => {
@@ -70,6 +81,7 @@ export const CountersignVideo: React.FC = () => {
           <Audio src={staticFile("sfx/whoosh.wav")} volume={0.22} />
         </Sequence>
       ))}
+      <Music />
       <Progress />
     </AbsoluteFill>
   );

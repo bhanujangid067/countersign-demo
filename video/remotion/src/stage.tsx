@@ -7,10 +7,13 @@ import type { Box } from "./timing";
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 export const inOut = Easing.bezier(0.65, 0, 0.35, 1);
 
-export const FRAME = { x: 200, y: 94, width: 1520 };
+// The browser window sits on the left; a rail on its right holds the story's steps and the notes,
+// so nothing is ever drawn on top of the page.
+export const FRAME = { x: 56, y: 108, width: 1360 };
+export const RAIL = { x: 1456, y: 120, width: 408, notes: 484 }; // notes: where callout cards start
 export const W = FRAME.width;
 export const H = Math.round((FRAME.width * 9) / 16); // the page area under the browser bar
-export const TAG = { x: FRAME.x, y: 26 }; // where chapter labels sit
+export const TAG = { x: FRAME.x, y: 38 }; // where chapter labels sit
 
 // Camera moves inside the window: zoom, and the point of the page (fractions) to centre on.
 export type Cam = { t: number; z: number; x: number; y: number; snap?: boolean }; // snap: start there at once (a new page)

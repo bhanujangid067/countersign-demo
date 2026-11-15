@@ -28,7 +28,7 @@ export const Close: React.FC = () => {
           <div style={{ width: 480, height: 2, background: C.ink, opacity: 0.5, transformOrigin: "left", scale: `${rule} 1`, marginTop: -8 }} />
         </div>
         <div style={{ opacity: foot, fontFamily: MONO, fontSize: 22, color: C.muted, letterSpacing: "0.08em", marginTop: 10, textAlign: "center", lineHeight: 1.7 }}>
-          TEAM BULLSEYE · VENTURE VORTEX 2026
+          GITHUB.COM/BHANUJANGID067/COUNTERSIGN-DEMO
           <br />
           A working demo on one sample API, with made-up data
         </div>

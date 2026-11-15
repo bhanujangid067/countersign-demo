@@ -41,9 +41,11 @@ const page = await browser.newPage({ viewport: VIEW, deviceScaleFactor: 2, color
 const shots = [];
 const extra = {};
 
+// GitHub serves logged-out visitors a cached copy of a pull request page, so every visit adds a
+// throwaway "_=<time>" to the address to get the page as it is now (left out of the address we record).
+const FRESH = /[?&]_=\d+/;
 async function open(url) {
-  if (page.url() === url) await page.reload({ waitUntil: "load" });
-  else await page.goto(url, { waitUntil: "load" });
+  await page.goto(url + (url.includes("?") ? "&" : "?") + "_=" + Date.now(), { waitUntil: "load" });
   await page.waitForTimeout(2500);
   await page.evaluate(() => document.querySelectorAll(".js-signup-prompt, .flash-full, .js-notification-shelf, cookie-consent-banner").forEach((e) => e.remove()));
 }
@@ -58,15 +60,22 @@ async function scrollTo(sel, text, top = 120) {
   await page.waitForTimeout(400);
   return ok;
 }
-// Where things are in the window (fractions of the width and height). Each mark is [css, text, min width].
+// Where things are in the window (fractions of the width and height). Each mark is [css, text, min width, grow].
+// grow = { maxW, maxH }: step out to the biggest parent that still fits, so a ring takes in the whole card
+// (a job's name and its time, a label and its value) and not just the words.
 async function marksOf(marks) {
   return page.evaluate(([marks, w, h]) => {
     const out = {};
-    for (const [name, [sel, text, minW]] of Object.entries(marks)) {
-      const el = [...document.querySelectorAll(sel)].filter((e) => {
+    for (const [name, [sel, text, minW, grow]] of Object.entries(marks)) {
+      let el = [...document.querySelectorAll(sel)].filter((e) => {
         const r = e.getBoundingClientRect();
         return e.innerText?.includes(text) && r.width >= (minW || 1) && r.height > 0;
       }).pop();
+      while (el && grow && el.parentElement) {
+        const pr = el.parentElement.getBoundingClientRect();
+        if (pr.width > grow.maxW || pr.height > grow.maxH) break;
+        el = el.parentElement;
+      }
       const r = el?.getBoundingClientRect();
       out[name] = r ? { x: r.left / w, y: r.top / h, w: r.width / w, h: r.height / h } : null;
     }
@@ -76,7 +85,7 @@ async function marksOf(marks) {
 async function shot(id, marks = {}, note = {}) {
   const file = `${id}.jpg`;
   await page.screenshot({ path: path.join(OUT, file), type: "jpeg", quality: 92 });
-  const s = { id, file, url: page.url().replace("https://", ""), t: Math.round(clock() * 10) / 10, marks: await marksOf(marks), ...note };
+  const s = { id, file, url: page.url().replace(FRESH, "").replace("https://", ""), t: Math.round(clock() * 10) / 10, marks: await marksOf(marks), ...note };
   shots.push(s);
   console.log(`${s.t.toFixed(0).padStart(4)}s  ${id}`, Object.entries(s.marks).filter(([, v]) => !v).map(([k]) => k + " MISSING").join(" "));
   return s;
@@ -84,9 +93,9 @@ async function shot(id, marks = {}, note = {}) {
 const jobsOf = (run) => JSON.parse(gh("run", "view", String(run), "--repo", SLUG, "--json", "status,conclusion,jobs"));
 const jobState = (r) => r.jobs.map((j) => `${j.name}:${j.conclusion || j.status}`).join(" ") + ` run:${r.conclusion || r.status}`;
 const RUN_MARKS = {
-  tests: [".WorkflowGraph *", "Normal tests", 150],
-  countersign: [".WorkflowGraph *", "Countersign", 150],
-  status: [".actions-workflow-stats *", "Status", 40],
+  tests: [".WorkflowGraph *", "Normal tests", 150, { maxW: 460, maxH: 100 }],
+  countersign: [".WorkflowGraph *", "Countersign", 150, { maxW: 460, maxH: 100 }],
+  status: [".actions-workflow-stats *", "Status", 40, { maxW: 280, maxH: 110 }],
   title: ["h1", "Refund API", 100],
 };
 // Photograph a run page every few seconds until the run finishes.
@@ -106,14 +115,19 @@ async function watch(run, prefix) {
   }
 }
 const COMMENT_MARKS = {
-  comment: [".timeline-comment", "countersign on the change", 400],
-  verdict: [".comment-body *", "countersign on the change", 300],
-  money: [".comment-body *", "re-ran", 300],
-  apps: [".comment-body *", "apps", 300],
+  comment: [".timeline-comment", "Who signs off?", 400],
+  verdict: [".comment-body h3", "Countersign", 100],
+  table: [".comment-body table", "Who signs off?", 300],
+  evidence: [".comment-body p", "Rule broken", 200],
 };
-async function comment(id) {
-  await open(`${REPO}/pull/${PR}`);
-  await scrollTo(".timeline-comment", "countersign on the change", 90);
+async function comment(id, heading) {
+  // Wait until the page shows the comment Countersign has just written.
+  for (let i = 0; i < 20; i++) {
+    await open(`${REPO}/pull/${PR}`);
+    if (await page.evaluate((h) => document.body.innerText.includes(h), heading)) break;
+    await sleep(3000);
+  }
+  await scrollTo(".timeline-comment", "Who signs off?", 90);
   return shot(id, COMMENT_MARKS);
 }
 const mergeState = () => JSON.parse(gh("pr", "view", String(PR), "--repo", SLUG, "--json", "mergeStateStatus,statusCheckRollup"));
@@ -132,18 +146,19 @@ await sleep(4000);
 await watch(failedRun, "bad");
 
 // 3. The evidence, and GitHub's answer.
-await comment("comment-stopped");
+await comment("comment-stopped", "Countersign stopped this change");
 extra.blocked = mergeState();
 
 // 4. Push the fix, and watch the new run.
 console.log("pushing the fix");
 const fixSha = sh("git", "rev-parse", "fix");
+const fixAt = new Date(Date.now() - 5000).toISOString();
 sh("scripts/github_demo.sh", "fix");
 let fixRun = null;
 for (let i = 0; i < 60 && !fixRun; i++) {
   await sleep(3000);
-  const runs = JSON.parse(gh("run", "list", "--repo", SLUG, "--workflow", "countersign.yml", "-L", "5", "--json", "databaseId,headSha"));
-  fixRun = runs.find((r) => r.headSha === fixSha)?.databaseId;
+  const runs = JSON.parse(gh("run", "list", "--repo", SLUG, "--workflow", "countersign.yml", "-L", "5", "--json", "databaseId,headSha,createdAt"));
+  fixRun = runs.find((r) => r.headSha === fixSha && r.createdAt > fixAt)?.databaseId; // the run this push started, not an older one
 }
 if (!fixRun) throw new Error("no run started for the fix");
 await open(`${REPO}/pull/${PR}`);
@@ -152,7 +167,7 @@ await shot("pr-pushed", { pushed: ["*", "Fix: refund API takes an explicit unit"
 await watch(fixRun, "fix");
 
 // 5. The updated comment, and GitHub's answer now.
-await comment("comment-clear");
+await comment("comment-clear", "Countersign: all clear");
 extra.clean = mergeState();
 extra.fixRun = fixRun;
 
