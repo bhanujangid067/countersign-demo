@@ -42,7 +42,7 @@ export const Title: React.FC = () => {
           <br />
           that <span style={{ color: C.pen, fontWeight: 600 }}>moves money</span> goes live.
         </div>
-        <div style={{ opacity: foot, fontFamily: MONO, fontSize: 24, color: C.muted, letterSpacing: "0.12em" }}>TEAM BULLSEYE · VENTURE VORTEX 2026</div>
+        <div style={{ opacity: foot, fontFamily: MONO, fontSize: 24, color: C.muted, letterSpacing: "0.12em" }}>A GITHUB ACTION FOR CODE THAT MOVES MONEY</div>
       </AbsoluteFill>
       <Sequence from={Math.round(0.62 * fps) + 4}>
         <Audio src={staticFile("sfx/mouse-click.wav")} volume={0.35} />

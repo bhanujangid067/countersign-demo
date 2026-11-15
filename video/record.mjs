@@ -144,7 +144,7 @@ async function release(name) {
   await page.evaluate((n) => window.__release(n), name);
 }
 async function click(selector) {
-  const box = await page.locator(selector).boundingBox();
+  const box = await page.locator(selector).first().boundingBox();
   const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
   await page.evaluate(([x, y]) => window.__ripple(x, y), [x, y]);
   await page.mouse.click(x, y); // the locked Merge button still takes clicks (it shakes)

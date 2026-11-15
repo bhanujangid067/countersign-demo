@@ -48,7 +48,7 @@
     },
     {
       "id": "gh1",
-      "text": "Now the real thing. Countersign runs as a GitHub Action. Here is Rohan's pull request, and the line that changes paise to rupees."
+      "text": "Now the real thing. Countersign runs as a GitHub Action. Here is the same change as a pull request on GitHub, and the line that changes paise to rupees."
     },
     {
       "id": "gh2",
@@ -56,11 +56,11 @@
     },
     {
       "id": "gh3",
-      "text": "It posts the evidence right on the pull request: a nine hundred rupee refund would go out as ninety thousand. And GitHub blocks the merge."
+      "text": "It posts its report right on the pull request: a nine hundred rupee refund would go out as ninety thousand. And GitHub blocks the merge."
     },
     {
       "id": "gh4",
-      "text": "Now Rohan pushes the fix. GitHub runs both checks again, on the new commit. This time, both pass."
+      "text": "Now the fix is pushed. GitHub runs both checks again, on the new commit. This time, both pass."
     },
     {
       "id": "gh5",

@@ -4,6 +4,7 @@ Usage:
   video/.tts/bin/python video/make_voice.py              one audio file per scene, using the voice in script.json
   video/.tts/bin/python video/make_voice.py samples      one short sample per candidate voice, to choose from
   video/.tts/bin/python video/make_voice.py am_michael   use a different voice this time
+  video/.tts/bin/python video/make_voice.py only=gh1,gh3 re-record just these lines
 
 Writes video/out/voice/<scene>.wav and video/out/voice/durations.json (or video/out/samples/*.wav).
 The model files live in video/models/ (downloaded once, about 200 MB).
@@ -58,11 +59,17 @@ def main() -> None:
             print(f"sample {v}.wav")
         return
 
-    voice = arg or script["voice"]
+    # "only=gh1,gh3" re-records just those lines and keeps every other line (and its length) as it is.
+    only = set(arg[5:].split(",")) if arg and arg.startswith("only=") else None
+    voice = script["voice"] if only or not arg else arg
     out = HERE / "out" / "voice"
     out.mkdir(parents=True, exist_ok=True)
+    kept = {d["id"]: d for d in json.loads((out / "durations.json").read_text())["scenes"]} if only else {}
     durations = []
     for scene in script["scenes"]:
+        if only and scene["id"] not in only:
+            durations.append(kept[scene["id"]])
+            continue
         audio, rate = speak(kokoro, scene["text"], voice, script["speed"])
         sf.write(out / f"{scene['id']}.wav", audio, rate)
         seconds = len(audio) / rate
