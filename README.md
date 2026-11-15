@@ -6,7 +6,10 @@ Countersign is a check that runs on every pull request. If a change could send t
 
 > **Where this is today:** Countersign runs as a GitHub Action, and this repo shows it on **two sample APIs** with **made-up data**. The "payment company" here is fake. It has not been run on a real company's payments yet. [What works today, and what doesn't](#what-works-today-and-whats-next).
 
-**See it:** the walkthrough is at https://bhanujangid067.github.io/countersign-demo/
+**See it:**
+
+- [Watch the 3-minute demo video](https://youtu.be/G3fcU_5YhG4)
+- [Try the walkthrough in your browser](https://bhanujangid067.github.io/countersign-demo/)
 
 ---
 
